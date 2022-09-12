@@ -12,7 +12,7 @@ class GraphCreator(tk.Frame):
     __slots__ = ('line_dash_text', 'line_style', 'nil_type', 'date_type', 'color_chooser', 'remove_category_button',
                  'graph_type', 'zero_type', 'create_button', 'nil_type_box', 'zero_type_box', 'chosen_color_mode',
                  'end_date', 'min_value_mode', 'min_value_hours', 'line_style_header', 'max_value_hours',
-                 'target_value_box', 'max_value_seconds', 'max_value_mode', 'date_win', 'data_store',
+                 'target_value_box', 'max_value_seconds', 'max_value_mode', 'date_win',
                  'style_overwrite', 'exclude_today', 'graph_name_entry', 'chosen_categories',
                  'chosen_line_styles', 'target_value_box_two', 'all_categories', 'colon_3', 'color_overwrite',
                  'first_time_date', 'save_options', 'line_dot_style', 'days_ago_field', 'chosen_color',
@@ -27,7 +27,11 @@ class GraphCreator(tk.Frame):
                  'all_categories_increment', 'rolling_average_on', 'interval_label', 'rolling_average_interval')
 
     def __init__(self, all_categories_time: list, all_categories_increment: list, dedication_mode_file: str):
-        self.graph_creator = tk.Toplevel()
+        if __name__ == "__main__":
+            self.graph_creator = tk.Tk()
+        else:
+            self.graph_creator = tk.Toplevel()
+            self.graph_creator.grab_set()
         tk.Frame.__init__(self)
         self.graph_creator.title("Graph Creation Options")
         self.graph_creator.resizable(False, False)
@@ -35,7 +39,6 @@ class GraphCreator(tk.Frame):
         self.place(relx=0.5, relwidth=1, anchor='n')
         self.columnconfigure(0, weight=1)
         self.columnconfigure(5, weight=1)
-        self.graph_creator.grab_set()
 
         if not exists("Graph Config.txt"):
             with open(r"Graph Config.txt", 'a') as file:
@@ -47,7 +50,6 @@ class GraphCreator(tk.Frame):
         self.all_categories_time = tuple(all_categories_time)
         self.all_categories_increment = tuple(all_categories_increment)
 
-        self.data_store = tk.StringVar()
         self.date_type = tk.StringVar()
         self.duration_mode = tk.StringVar(value='Days ago')
         self.dedication_mode_file = dedication_mode_file

@@ -62,12 +62,14 @@ def ensure_data_file_existence(current_date: str, filename: str):
     """Verifies data file existence. If a backup file exists, but its corresponding main file does not, offers to
     restore the contents of the backup to the main file. If a backup does not exist, or restoration is declined,
     creates a new data file. Is used to create data files the first time the program is run."""
+    type = ''
     if (not exists(filename) or getsize(filename) == 0) and exists(filename+'.bak'):
         type = 'Time' if filename == "Dedication Record.txt" else 'Increment'
         if tk.messagebox.askyesno('Empty data file', f'{type} data for Dedication Tracker is missing or corrupted.\n'
                                   'Would you like to restore from a backup?', icon='error'):
             restore_from_backup(filename)
-    elif not exists(filename):
+            return
+    if not exists(filename) or type:
         header = filename+' - ' if ' ' in filename else ''
         with open(filename, 'a') as file:
             file.write(f"{header}Modifying this file directly may render it unreadable to the program.\n"
@@ -77,8 +79,9 @@ def ensure_data_file_existence(current_date: str, filename: str):
 def prepare_backup(filename: str):
     with open(filename, 'r') as file:
         file_contents = file.readlines()
-    with open(f"{filename}.bak", 'w+') as file:
-        file.write(''.join(file_contents))
+    if file_contents:
+        with open(f"{filename}.bak", 'w+') as file:
+            file.write(''.join(file_contents))
     return file_contents
 
 

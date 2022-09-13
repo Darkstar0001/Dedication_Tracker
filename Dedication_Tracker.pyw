@@ -32,8 +32,8 @@ class DedicationTracker(tk.Frame):
         self.increment = 0
         self.timer_is_on = False
 
-        util.ensure_data_file_existence(str(self.current_date), "Dedication Tracker.txt")
-        util.ensure_data_file_existence(str(self.current_date), "Dedication#Tracker.txt")
+        util.ensure_data_file_existence(str(self.current_date), "Dedication Record.txt")
+        util.ensure_data_file_existence(str(self.current_date), "Dedication#Record.txt")
         self.prepare_file("Dedication Record.txt")
         self.prepare_file("Dedication#Record.txt")
 

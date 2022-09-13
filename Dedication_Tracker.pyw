@@ -32,7 +32,8 @@ class DedicationTracker(tk.Frame):
         self.increment = 0
         self.timer_is_on = False
 
-        util.ensure_data_file_existence(str(self.current_date))
+        util.ensure_data_file_existence(str(self.current_date), "Dedication Tracker.txt")
+        util.ensure_data_file_existence(str(self.current_date), "Dedication#Tracker.txt")
         self.prepare_file("Dedication Record.txt")
         self.prepare_file("Dedication#Record.txt")
 
@@ -326,23 +327,24 @@ class DedicationTracker(tk.Frame):
                     file.write(bytes(f"{current_category.strip()} ~ 0 | ", 'utf-8'))
 
     def create_category(self, new_category: str):
-        if new_category != '' and new_category not in self.all_categories:
-            if not any(char in new_category for char in (':', '|', '~', '  ')):
-                if len(new_category) > 24:
-                    if not tk.messagebox.askyesno('Long category name', 'Long category names may cause display issues.'
-                                                                        ' Are you sure you wish to proceed?',
-                                                  icon='warning'):
-                        return None
-                new = util.prepare_backup(self.dedication_mode_file)
-                new[2] = f"{new[2][:-1]}{new_category} : \n"
-                with open(self.dedication_mode_file, 'w') as file:
-                    file.write(''.join(new))
-                self.all_categories.append(new_category)
-                self.category_entry.delete(0, 'end')
-                self.set_up_categories(initial=False)
-            else:
-                tk.messagebox.showwarning('Invalid category name', "Category names may not contain a colon : bar |"
-                                                                   " tilde ~ or consecutive empty spaces '  '.")
+        if new_category == '' or new_category in self.all_categories:
+            return
+        if any(char in new_category for char in (':', '|', '~', '  ')):
+            tk.messagebox.showwarning('Invalid category name', "Category names may not contain a colon : bar |"
+                                                               " tilde ~ or consecutive empty spaces '  '.")
+            return
+        if len(new_category) > 24:
+            if not tk.messagebox.askyesno('Long category name', 'Long category names may cause display issues.'
+                                                                ' Are you sure you wish to proceed?',
+                                          icon='warning'):
+                return None
+        new = util.prepare_backup(self.dedication_mode_file)
+        new[2] = f"{new[2][:-1]}{new_category} : \n"
+        with open(self.dedication_mode_file, 'w') as file:
+            file.write(''.join(new))
+        self.all_categories.append(new_category)
+        self.category_entry.delete(0, 'end')
+        self.set_up_categories(initial=False)
 
     def save_records(self, increment=False, new_day=False):
         if (self.dedication_mode_file == "Dedication Record.txt" and str(self.current_category_time) == '0:00:00') or \
@@ -415,8 +417,8 @@ class DedicationTracker(tk.Frame):
         main_category_listbox = tk.Listbox(loaded_categories, width=24, font='courier 12', height=20,
                                            yscrollcommand=scroll.set)
         main_category_listbox.grid()
-        tk.Button(loaded_categories, text='Delete', command=lambda: util.select_delete(target_listbox=main_category_listbox,
-                                                              filename=dedication_mode, dedication_tracker=self)).grid()
+        tk.Button(loaded_categories, text='Delete', command=lambda: util.select_delete(
+            target_listbox=main_category_listbox, filename=dedication_mode, dedication_tracker=self)).grid()
         scroll.grid(row=0, column=1, sticky='ns')
         scroll.config(command=main_category_listbox.yview)
         for category in all_categories:

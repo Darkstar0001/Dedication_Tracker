@@ -1,13 +1,6 @@
 import tkinter as tk
-from os.path import exists
-
-
-def prepare_backup(filename: str):
-    with open(filename, 'r') as file:
-        file_contents = file.readlines()
-    with open(f"{filename}.bak", 'w+') as file:
-        file.write(''.join(file_contents))
-    return file_contents
+from tkinter import messagebox
+from os.path import exists, getsize
 
 
 def verify_spaced_name(category_list: list, category: str):
@@ -27,6 +20,8 @@ def verify_spaced_name(category_list: list, category: str):
 
 
 def select_delete(target_listbox: tk.Listbox, filename: str, dedication_tracker):
+    """Deletes the entry selected in the supplied Listbox. Removes said entry from the data file options, and
+    sets the current category to '' if deleting the active category in the main Dedication Tracker."""
     try:
         target, target_num = target_listbox.get(target_listbox.curselection()[0]), target_listbox.curselection()[0]
     except (tk.TclError, IndexError):
@@ -63,13 +58,32 @@ def get_categories_from_file(filename: str) -> list:
     return [category_name.strip() for category_name in categories]
 
 
-def ensure_data_file_existence(current_date: str):
-    if not exists("Dedication Record.txt"):
-        with open(r"Dedication Record.txt", 'a') as file:
-            file.write("Dedication Record.txt -"
-                       "Modifying this file directly may render it unreadable to the program.\nDedication tracking"
-                       f"started on {current_date}\nSaved categories include: \n{current_date} | ")
-    if not exists("Dedication#Record.txt"):
-        with open(r"Dedication#Record.txt", 'a') as file:
-            file.write("Modifying this file directly may render it unreadable to the program.\nDedication tracking"
-                       f"started on {current_date}\nSaved categories include: \n{current_date} | ")
+def ensure_data_file_existence(current_date: str, filename: str):
+    """Verifies data file existence. If a backup file exists, but its corresponding main file does not, offers to
+    restore the contents of the backup to the main file. If a backup does not exist, or restoration is declined,
+    creates a new data file. Is used to create data files the first time the program is run."""
+    if (not exists(filename) or getsize(filename) == 0) and exists(filename+'.bak'):
+        type = 'Time' if filename == "Dedication Record.txt" else 'Increment'
+        if tk.messagebox.askyesno('Empty data file', f'{type} data for Dedication Tracker is missing or corrupted.\n'
+                                  'Would you like to restore from a backup?', icon='error'):
+            restore_from_backup(filename)
+    elif not exists(filename):
+        header = filename+' - ' if ' ' in filename else ''
+        with open(filename, 'a') as file:
+            file.write(f"{header}Modifying this file directly may render it unreadable to the program.\n"
+                       f"Dedication tracking started on {current_date}\nSaved categories include: \n{current_date} | ")
+
+
+def prepare_backup(filename: str):
+    with open(filename, 'r') as file:
+        file_contents = file.readlines()
+    with open(f"{filename}.bak", 'w+') as file:
+        file.write(''.join(file_contents))
+    return file_contents
+
+
+def restore_from_backup(filename: str):
+    with open(filename+'.bak', 'r') as file:
+        backup = file.readlines()
+    with open(filename, 'w+') as file:
+        file.writelines(backup)

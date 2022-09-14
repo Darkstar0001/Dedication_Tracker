@@ -2,8 +2,9 @@ import tkinter as tk
 from tkinter import messagebox, colorchooser
 from datetime import datetime, date
 from tkcalendar.calendar_ import Calendar
-from os.path import exists
+from os.path import exists, getsize
 from math import log
+import csv
 import dedicationsharedfunctions as util
 # matplotlib is imported within the graph class's graphing function, to improve program startup speed
 
@@ -12,7 +13,7 @@ class GraphCreator(tk.Frame):
     __slots__ = ('line_dash_text', 'line_style', 'nil_type', 'date_type', 'color_chooser', 'remove_category_button',
                  'graph_type', 'zero_type', 'create_button', 'nil_type_box', 'zero_type_box', 'chosen_color_mode',
                  'end_date', 'min_value_mode', 'min_value_hours', 'line_style_header', 'max_value_hours',
-                 'target_value_box', 'max_value_seconds', 'max_value_mode', 'date_win',
+                 'target_value_box', 'max_value_seconds', 'max_value_mode', 'date_win', 'graph_config_categories',
                  'style_overwrite', 'exclude_today', 'graph_name_entry', 'chosen_categories',
                  'chosen_line_styles', 'target_value_box_two', 'all_categories', 'colon_3', 'color_overwrite',
                  'first_time_date', 'save_options', 'line_dot_style', 'days_ago_field', 'chosen_color',
@@ -39,10 +40,6 @@ class GraphCreator(tk.Frame):
         self.place(relx=0.5, relwidth=1, anchor='n')
         self.columnconfigure(0, weight=1)
         self.columnconfigure(5, weight=1)
-
-        if not exists("Graph Config.txt"):
-            with open(r"Graph Config.txt", 'a') as file:
-                file.write("Modifying this file directly may render it unreadable to the program.\n")
 
         self.first_time_date = date(*self.get_start_date("Dedication Record.txt"))
         self.first_increment_date = date(*self.get_start_date("Dedication#Record.txt"))
@@ -218,12 +215,13 @@ class GraphCreator(tk.Frame):
         self.graph_format_button.config(width=4)
         self.line_dot_text = tk.Label(self.graph_creator, text='Line dot style')
         self.line_dot_text.grid(row=6, column=4, pady=(0, 50))
-        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.',
-                                                    'o', 'Square', 'Triangle', '*', '+', 'x', 'X', '|', '_')
+        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.', 'o',
+                                                    'Square', 'Triangle', '*', '+', 'x', 'X', '|', '_')
         self.line_dot_style_options.grid(row=6, column=4)
         self.line_dash_text = tk.Label(self.graph_creator, text='Line style')
         self.line_dash_text.grid(row=6, column=4, pady=(60, 0))
-        self.line_dash_options = tk.OptionMenu(self.graph_creator, self.line_style, 'solid', 'dashed', 'dotted', 'dashdot', 'None')
+        self.line_dash_options = tk.OptionMenu(self.graph_creator, self.line_style,
+                                               'solid', 'dashed', 'dotted', 'dashdot', 'None')
         self.line_dash_options.config(width=7)
         self.line_dash_options.grid(row=6, column=4, pady=(110, 0), padx=10)
 
@@ -240,12 +238,28 @@ class GraphCreator(tk.Frame):
                                        command=lambda: self.graph_prep('create'), takefocus=False)
         self.create_button.grid(row=6, column=1, pady=(135, 0))
 
+        self.graph_config_categories = (
+            'Title', 'Start Date', 'End Date', 'Days Ago', 'Duration Setting',
+            'Graph Type', 'Min Value Type', 'Min Value (Hours)', 'Min Value (Minutes)', 'Min Value (Seconds)',
+            'Max Value Type', 'Max Value (Hours)', 'Max Value (Minutes)', 'Max Value (Seconds)', 'Line Styles',
+            'Graph Format', 'Categories', 'Category Colors', 'Target Value 1', 'Target Value 2',
+            'Empty Value Placeholder', 'Nil Type', 'Exclude Today', 'Plot Rolling Average', 'Rolling Average Interval')
+
+        if (not exists('Graph Config.csv') or getsize('Graph Config.csv') == 0) and exists('Graph Config.csv.bak'):
+            if tk.messagebox.askyesno('Empty data file',
+                                      f'Saved graph configurations for Dedication Tracker are missing or corrupted.\n'
+                                      'Would you like to restore from a backup?', icon='error'):
+                util.restore_from_backup('Graph Config.csv')
+        elif not exists("Graph Config.csv"):
+            with open(r"Graph Config.csv", 'a') as csvfile:
+                csv.writer(csvfile).writerow(self.graph_config_categories)
+
     @staticmethod
-    def get_start_date(filename):
+    def get_start_date(filename: str):
         with open(filename, 'r') as file:
             for _ in range(3):
                 next(file)
-            return [int(x) for x in file.readline()[:10].split('-')]
+            return [int(digit) for digit in file.readline()[:10].split('-')]
 
     def triple_scroll(self, *args):
         self.chosen_categories.yview(*args)
@@ -280,7 +294,7 @@ class GraphCreator(tk.Frame):
         self.spin_entry_insert(self.target_value_box_two, 0, True)
 
     @staticmethod
-    def spin_entry_insert(box, entry: str, insert_none=False, state='readonly'):
+    def spin_entry_insert(box: tk.Spinbox | tk.Entry, entry: str, insert_none=False, state='readonly'):
         box.config(state='normal')
         box.delete(0, 'end')
         try:
@@ -371,18 +385,17 @@ class GraphCreator(tk.Frame):
             self.state_toggle('disabled', self.interval_label, self.rolling_average_interval)
 
     def add_category(self):
-        all_cats = self.chosen_categories.get(0, 'end')
-        if self.selected_option.get() not in all_cats and self.selected_option.get() != '':
+        if self.selected_option.get() not in self.chosen_categories.get(0, 'end') and self.selected_option.get() != '':
             self.chosen_categories.insert('end', self.selected_option.get())
             if self.chosen_color_mode.get() == 'Automatic':
                 self.chosen_colors.insert('end', 'Auto')
             else:
                 self.chosen_colors.insert('end', self.chosen_color)
-            self.chosen_line_styles.insert('end',
-                                           f"{self.translate_style_name(self.line_dot_style.get())} {self.line_style.get()}")
+            self.chosen_line_styles.insert(
+                'end', f"{self.translate_style_name(self.line_dot_style.get())} {self.line_style.get()}")
 
     @staticmethod
-    def translate_style_name(dot):
+    def translate_style_name(dot: str) -> str:
         if dot == 'Flat':
             return 'None'
         elif dot == 'Square':
@@ -432,31 +445,32 @@ class GraphCreator(tk.Frame):
                                            f"{self.translate_style_name(self.line_dot_style.get())} {self.line_style.get()}")
 
     def graph_type_switch(self, incoming_graph_type: str, skip_message=False):
-        if incoming_graph_type != self.graph_type.get():
-            if self.chosen_categories.get(0):
-                if not skip_message:
-                    if not tk.messagebox.askyesno('mode reset', 'Changing graph types will reset selected'
-                                                  ' categories. Are you sure you wish to proceed?', icon='warning'):
-                        self.incoming_graph_type.set(self.graph_type.get())
-                        return None
-                self.chosen_categories.delete(0, 'end')
-                self.chosen_colors.delete(0, 'end')
-                self.chosen_line_styles.delete(0, 'end')
-                if skip_message and self.incoming_graph_type.get() == self.graph_type.get():
-                    return None
-            if incoming_graph_type == 'Time':
-                self.dedication_mode_file = "Dedication Record.txt"
-                self.all_categories = self.all_categories_time
-            else:
-                self.dedication_mode_file = "Dedication#Record.txt"
-                self.all_categories = self.all_categories_increment
-            self.create_minmax_value_spinbox()
-            self.graph_type.set(self.incoming_graph_type.get())
-            self.selected_option.set('')
-            self.saved_categories.destroy()
-            self.saved_categories = tk.OptionMenu(self.graph_creator, self.selected_option, *self.all_categories)
-            self.saved_categories.grid(row=5, column=1)
-            self.saved_categories.config(width=24)
+        if incoming_graph_type == self.graph_type.get():
+            return
+        if self.chosen_categories.get(0):
+            if skip_message and self.incoming_graph_type.get() == self.graph_type.get():
+                return
+            if not skip_message and not tk.messagebox.askyesno(
+                    'mode reset', 'Changing graph types will reset selected categories. '
+                                  'Are you sure you wish to proceed?', icon='warning'):
+                    self.incoming_graph_type.set(self.graph_type.get())
+                    return
+            self.chosen_categories.delete(0, 'end')
+            self.chosen_colors.delete(0, 'end')
+            self.chosen_line_styles.delete(0, 'end')
+        if incoming_graph_type == 'Time':
+            self.dedication_mode_file = "Dedication Record.txt"
+            self.all_categories = self.all_categories_time
+        else:  # Interval
+            self.dedication_mode_file = "Dedication#Record.txt"
+            self.all_categories = self.all_categories_increment
+        self.create_minmax_value_spinbox()
+        self.graph_type.set(self.incoming_graph_type.get())
+        self.selected_option.set('')
+        self.saved_categories.destroy()
+        self.saved_categories = tk.OptionMenu(self.graph_creator, self.selected_option, *self.all_categories)
+        self.saved_categories.grid(row=5, column=1)
+        self.saved_categories.config(width=24)
 
     def graph_format_toggle(self, graph_format: str):
         if graph_format == 'Line':
@@ -473,75 +487,49 @@ class GraphCreator(tk.Frame):
             overwrite_line = False
         elif not overwrite_line:
             return
-
-        one = two = three = ''
-        if self.duration_mode.get() == 'Date range':
-            one = self.start_date.get()
-            two = self.end_date.get()
-        elif self.duration_mode.get() == 'Days ago':
-            three = self.days_ago_field.get()
-        configuration = [self.graph_name_entry.get().strip(), one, two, three, self.duration_mode.get(),
-                         self.graph_type.get(), self.min_value_mode.get()]
-
-        one = three = ''
-        if self.min_value_mode.get() != 'Automatic':
-            one = self.min_value_hours.get()
-            three = self.min_value_seconds.get()
-        two = self.min_value_minutes.get()
-        configuration.extend([one, two, three, self.max_value_mode.get()])
-
-        one = three = ''
-        two = self.max_value_minutes.get()
-        if self.max_value_mode.get() != 'Automatic':
-            one = self.max_value_hours.get()
-            three = self.max_value_seconds.get()
-        graph_line_styles = self.chosen_line_styles.get(0, 'end')
-        configuration.extend([one, two, three, ':'.join(graph_line_styles), self.graph_format.get()])
-
-        graph_categories = self.chosen_categories.get(0, 'end')
-        graph_colors = self.chosen_colors.get(0, 'end')
-        target_one = target_two = nil = ''
-        if self.target_value_box.get() != 0 and self.target_value_box.get() != 'None':
-            target_one = self.target_value_box.get()
-        if self.target_value_box_two.get() != 0 and self.target_value_box_two.get() != 'None':
-            target_two = self.target_value_box_two.get()
-        if self.zero_type.get() == 'Nil':
-            nil = self.nil_type.get()
-
-        to_write = f"{'|'.join(configuration)}|{':'.join(graph_categories)}|{':'.join(graph_colors)}|{target_one}|" \
-                   f"{target_two}|{self.zero_type.get()}|{nil}|{self.exclude_today.get()}|{self.rolling_average_on.get()}"\
-                   f"{self.rolling_average_interval.get()}|\n"
+        configuration = dict(zip(self.graph_config_categories, (
+                self.graph_name_entry.get(), self.start_date.get(), self.end_date.get(), self.days_ago_field.get(),
+                self.duration_mode.get(), self.graph_type.get(), self.min_value_mode.get(), self.min_value_hours.get(),
+                self.min_value_minutes.get(), self.min_value_seconds.get(), self.max_value_mode.get(),
+                self.max_value_hours.get(), self.max_value_minutes.get(), self.max_value_seconds.get(),
+                self.chosen_line_styles.get(0, 'end'), self.graph_format.get(), self.chosen_categories.get(0, 'end'),
+                self.chosen_colors.get(0, 'end'), self.target_value_box.get(), self.target_value_box_two.get(),
+                self.zero_type.get(), self.nil_type.get(), self.exclude_today.get(), self.rolling_average_on.get(),
+                self.rolling_average_interval.get())))
         if mode == 'save':
-            if overwrite_line > 0:
-                new = util.prepare_backup("Graph Config.txt")
-                new[overwrite_line] = to_write
-                with open(r"Graph Config.txt", 'w') as file:
-                    file.write(''.join(new))
-            else:
-                with open(r"Graph Config.txt", 'a') as file:
-                    file.write(to_write)
+            for category in ('Line Styles', 'Categories', 'Category Colors'):
+                configuration[category] = '|'.join(configuration[category])
+            try:
+                if overwrite_line:
+                    util.prepare_backup("Graph Config.csv")  # does not use return value
+                    with open("Graph Config.csv", 'r', newline='') as csvfile:
+                        new = []
+                        new.extend(csv.reader(csvfile))  # csv requires different method to obtain usable file data
+                    new[overwrite_line] = configuration.values()
+                    with open(r"Graph Config.csv", 'w+', newline='') as csvfile:
+                        csv.writer(csvfile).writerows(new)
+                else:
+                    with open(r"Graph Config.csv", 'a', newline='') as csvfile:
+                        csv.DictWriter(csvfile, fieldnames=self.graph_config_categories).writerow(configuration)
+            except PermissionError:
+                tl.messagebox.showerror('Access denied', 'The destination file could not be accessed. Make sure that '
+                                                         'it is not open in another program.')
             tk.messagebox.showinfo('Configuration saved', 'Graph settings saved successfully.',
                                    parent=self.graph_creator)
         else:
-            configuration.extend([graph_categories, graph_colors, self.target_value_box.get(),
-                                  self.target_value_box_two.get(), self.zero_type.get(), self.nil_type.get(),
-                                  self.exclude_today.get(), self.rolling_average_on.get(), self.rolling_average_interval.get()])
             self.graph_create(configuration)
 
     def graph_error_check(self, mode: str, graph_name: str):
-        if len(graph_name) > 40 and mode == 'save':
-            if not tk.messagebox.askyesno('Excessive name length', 'Long config names may result in display issues. Are'
-                                                                   ' you sure you wish to proceed?', icon='warning',
-                                          parent=self.graph_creator):
+        if mode == 'save':
+            if len(graph_name) > 40:
+                if not tk.messagebox.askyesno('Excessive name length', 'Long config names may result in display issues. Are'
+                                                                       ' you sure you wish to proceed?', icon='warning',
+                                              parent=self.graph_creator):
+                    return False
+            if graph_name == '':
+                tk.messagebox.showwarning('Empty name field', 'Graph name is required when saving configuration to a file.',
+                                          parent=self.graph_creator)
                 return False
-        if mode == 'save' and graph_name == '':
-            tk.messagebox.showwarning('Empty name field', 'Graph name is required when saving configuration to a file.',
-                                      parent=self.graph_creator)
-            return False
-        if mode == 'save' and '|' in graph_name:
-            tk.messagebox.showwarning('Invalid name', 'Saved graph configuration names may not include the | character.',
-                                      parent=self.graph_creator)
-            return False
         if self.max_value_mode.get() == self.min_value_mode.get() != 'Automatic':
             if self.minmax_error_check():
                 tk.messagebox.showwarning('Invalid value range',
@@ -558,14 +546,19 @@ class GraphCreator(tk.Frame):
                                                           ' date must be specified.', parent=self.graph_creator)
             return False
         if mode == 'save':
-            with open(r"Graph Config.txt", 'r') as file:
-                for line_num, line in enumerate(file):
-                    if line.split('|')[0] == graph_name:
-                        if not tk.messagebox.askyesno('Overwrite configuration', 'A saved configuration with the same'
-                                                      ' name already exists. Would you like to overwrite it?',
-                                                      icon='warning', parent=self.graph_creator):
-                            return False
-                        return int(line_num)
+            try:
+                with open(r"Graph Config.csv", 'r') as csvfile:
+                    for line_num, line in enumerate(csv.DictReader(csvfile)):
+                        if line['Title'] == graph_name:
+                            if not tk.messagebox.askyesno(
+                                    'Overwrite configuration', 'A saved configuration with the same name already'
+                                    'exists. Would you like to overwrite it?', icon='warning', parent=self.graph_creator):
+                                return False
+                            return int(line_num+1)
+            except (KeyError, FileNotFoundError):
+                self.backup_prompt()
+                return False
+
         return True
 
     def minmax_error_check(self):
@@ -577,17 +570,28 @@ class GraphCreator(tk.Frame):
         if minimum >= maximum:
             return True
 
-    def graph_config_load(self):
-        with open(r"Graph Config.txt", 'r') as file:
-            next(file)
-            saved_settings = [line.split('|')[0] for line in file]
-        if len(saved_settings) == 0:
-            tk.messagebox.showwarning('No saved settings', 'No settings to load', parent=self.graph_creator)
-            return None
-        else:
-            self.graph_config_load_window(saved_settings)
+    @staticmethod
+    def backup_prompt():
+        if exists("Graph Config.csv.bak") and tk.messagebox.askyesno(
+                'Saved settings not found', 'No saved settings could be found. It is possible that they are either '
+                                            'missing or corrupted. Would you like to restore from a backup?',
+                parent=self.graph_creator, icon='error'):
+            util.restore_from_backup("Graph Config.csv")
+            return True
 
-    def graph_config_load_window(self, saved):
+    def graph_config_load(self):
+        try:
+            with open(r"Graph Config.csv", 'r') as csvfile:
+                saved_settings = [config['Title'] for config in csv.DictReader(csvfile)]
+        except (KeyError, FileNotFoundError):
+            saved_settings = ''
+        if len(saved_settings) == 0:
+            if not self.backup_prompt():
+                tk.messagebox.showwarning('No saved settings', 'No settings to load', parent=self.graph_creator)
+        else:
+            self.graph_config_load_window(saved=tuple(saved_settings))
+
+    def graph_config_load_window(self, saved: tuple):
         config_load_window = tk.Toplevel(self.graph_creator)
         config_load_window.title("Select a graph configuration to load")
         config_load_window.resizable(False, False)
@@ -602,103 +606,125 @@ class GraphCreator(tk.Frame):
         for item in saved:
             load_list.insert('end', item)
         tk.Button(config_load_window, text='Direct graph',
-                  command=lambda: self.select_load(config_load_window, load_list, True)).grid(row=1, padx=(0, 200))
-        tk.Button(config_load_window, text='Select',
-                  command=lambda: self.select_load(config_load_window, load_list)).grid(row=1)
-        tk.Button(config_load_window, text='Delete', command=lambda: util.select_delete(load_list, "Graph Config.txt"
-                                                                                   )).grid(row=1, padx=(170, 0))
+                  command=lambda: self.select_load(window=config_load_window, load_list=load_list,
+                                                   direct=True)).grid(row=1, padx=(0, 200))
+        tk.Button(config_load_window, text='Select', command=lambda: self.select_load(
+            window=config_load_window, load_list=load_list)).grid(row=1)
+        tk.Button(config_load_window, text='Delete', command=lambda: util.select_delete(load_list, "Graph Config.txt")
+                  ).grid(row=1, padx=(170, 0))
 
-    def select_load(self, window, load_list, direct=False):
+    def select_load(self, window: tk.Toplevel, load_list: tk.Listbox, direct=False):
         try:
             target, target_num = load_list.get(load_list.curselection()[0]), load_list.curselection()[0]
         except (TypeError, tk.TclError, IndexError):
             return
         load = False
-        with open("Graph Config.txt", 'r') as file:
-            for line in file:
-                if line.split('|')[0] == target:
-                    load = line.split('|')
-        if load and not direct:  # Closes the file before performing the load or graph creation
-            self.full_select_load(window, load, target)
+        with open("Graph Config.csv", 'r') as csvfile:
+            for line in csv.DictReader(csvfile):
+                if line['Title'] == target:
+                    load = line
+        if load and not direct:
+            self.full_select_load(window=window, settings=load, target=target)
         elif direct:
-            load[16] = load[16].split(':')
-            load[17] = load[17].split(':')
+            for category in ('Line Styles', 'Categories', 'Category Colors'):
+                load[category] = load[category].split('|')
             self.graph_create(load)
 
-    def full_select_load(self, window, settings, target):
+    def full_select_load(self, window: tk.Toplevel, settings: dict, target: str):
         self.graph_name_entry.delete(0, 'end')
-        self.graph_name_entry.insert(0, settings[0])
-        self.__set_date('start', settings[1], None)
-        self.__set_date('end', settings[2], None)
-        self.spin_entry_insert(self.days_ago_field, settings[3])
-        self.duration_mode.set(settings[4])
+        self.graph_name_entry.insert(0, settings['Title'])
+        self.__set_date('start', settings['Start Date'], None)
+        self.__set_date('end', settings['End Date'], None)
+        self.spin_entry_insert(self.days_ago_field, settings['Days Ago'])
+        self.duration_mode.set(settings['Duration Setting'])
         self.duration_mode_change(self.duration_mode.get())
 
-        self.incoming_graph_type.set(settings[5])
-        self.graph_type_switch(settings[5], True)
-        self.min_value_mode.set(settings[6])
+        self.incoming_graph_type.set(settings['Graph Type'])
+        self.graph_type_switch(settings['Graph Type'], True)
+        self.min_value_mode.set(settings['Min Value Type'])
         if self.min_value_mode.get() != 'Automatic':
-            self.spin_entry_insert(self.min_value_minutes, settings[8])
+            self.spin_entry_insert(self.min_value_minutes, settings['Min Value (Minutes)'])
             if self.graph_type.get() == 'Time':
-                self.spin_entry_insert(self.min_value_hours, settings[7])
-                self.spin_entry_insert(self.min_value_seconds, settings[9])
-        self.min_value_mode_toggle(settings[6])
+                self.spin_entry_insert(self.min_value_hours, settings['Min Value (Hours)'])
+                self.spin_entry_insert(self.min_value_seconds, settings['Min Value (Seconds)'])
+        self.min_value_mode_toggle(settings['Min Value Type'])
 
-        self.max_value_mode.set(settings[10])
+        self.max_value_mode.set(settings['Max Value Type'])
         if self.max_value_mode.get() != 'Automatic':
-            self.spin_entry_insert(self.max_value_minutes, settings[12])
+            self.spin_entry_insert(self.max_value_minutes, settings['Max Value (Minutes)'])
             if self.graph_type.get() == 'Time':
-                self.spin_entry_insert(self.max_value_hours, settings[11])
-                self.spin_entry_insert(self.max_value_seconds, settings[13])
-        self.max_value_mode_toggle(settings[10])
+                self.spin_entry_insert(self.max_value_hours, settings['Max Value (Hours)'])
+                self.spin_entry_insert(self.max_value_seconds, settings['Max Value (Seconds)'])
+        self.max_value_mode_toggle(settings['Max Value Type'])
 
         self.chosen_line_styles.delete(0, 'end')
-        for mode in settings[14].split(':'):
+        for mode in settings['Line Styles'].split('|'):
             self.chosen_line_styles.insert('end', mode)
-        self.graph_format.set(settings[15])
-        self.graph_format_toggle(settings[15])
+        self.graph_format.set(settings['Graph Format'])
+        self.graph_format_toggle(settings['Categories'])
 
         self.chosen_categories.delete(0, 'end')
-        for mode in settings[16].split(':'):
+        for mode in settings['Categories'].split('|'):
             self.chosen_categories.insert('end', mode)
 
         self.chosen_colors.delete(0, 'end')
-        for color in settings[17].split(':'):
+        for color in settings['Category Colors'].split('|'):
             self.chosen_colors.insert('end', color)
-            if settings[18] == '': settings[18] = 'None'
-            if settings[19] == '': settings[19] = 'None'
+        if settings['Target Value 1'] == '': settings['Target Value 1'] = 'None'
+        if settings['Target Value 2'] == '': settings['Target Value 2'] = 'None'
 
-        self.spin_entry_insert(self.target_value_box, settings[18], True)
-        self.spin_entry_insert(self.target_value_box_two, settings[19], True)
+        self.spin_entry_insert(self.target_value_box, settings['Target Value 1'], True)
+        self.spin_entry_insert(self.target_value_box_two, settings['Target Value 2'], True)
 
-        self.zero_type.set(settings[20])
-        self.nil_swap(settings[20])
-        if settings[21] == '':
-            settings[21] = 'All'
-        self.nil_type.set(settings[21])
+        self.zero_type.set(settings['Empty Value Placeholder'])
+        self.nil_swap(settings['Empty Value Placeholder'])
+        if settings['Nil Type'] == '':
+            settings['Nil Type'] = 'All'
+        self.nil_type.set(settings['Nil Type'])
 
-        if '\n' not in settings[22]:
-            self.exclude_today.set(settings[22])
-        else:
-            self.exclude_today.set(False)
+        self.exclude_today.set(settings['Exclude Today'])
 
-        if len(settings) >= 25:
-            self.rolling_average_on.set(settings[23])
-            if self.rolling_average_on.get():
-                if settings[24] == 0:
-                    settings[24] = 'All'
-                self.spin_entry_insert(self.rolling_average_interval, settings[24])
+        self.rolling_average_on.set(settings['Plot Rolling Average'])
+        if self.rolling_average_on.get():
+            if settings['Rolling Average Interval'] == 0:
+                settings['Rolling Average Interval'] = 'All'
+            self.spin_entry_insert(self.rolling_average_interval, settings['Rolling Average Interval'])
         else:
             self.rolling_average_on.set(False)
             self.spin_entry_insert(self.rolling_average_interval, entry='All', state='disabled')
         tk.messagebox.showinfo('Load complete', f"{target} settings loaded successfully.")
         self.__config_load_close(window)
 
-    def __config_load_close(self, window):
+    def __config_load_close(self, window: tk.Toplevel):
         window.destroy()
         self.graph_creator.grab_set()
 
-    def graph_create(self, configuration: list):
+    def graph_create(self, config: dict):
+        """{'Title': self.graph_name_entry.get(),
+                         'Start date': self.start_date.get(),
+                         'End date': self.end_date.get(),
+                         'Days ago': self.days_ago_field.get(),
+                         'Duration setting': self.duration_mode.get(),
+                         'Graph type': self.graph_type.get(),
+                         'Min value type': self.min_value_mode.get(),
+                         'Min value (hours)': self.min_value_hours.get(),
+                         'Min value minutes': self.min_value_minutes.get(),
+                         'Min value (seconds)': self.min_value_seconds.get(),
+                         'Max value type': self.max_value_mode.get(),
+                         'Max value (hours)': self.max_value_hours.get(),
+                         'Max value (minutes)': self.max_value_minutes.get(),
+                         'Max value (seconds)': self.max_value_seconds.get(),
+                         'Line styles': self.chosen_line_styles.get(0, 'end'),
+                         'Graph format': self.graph_format.get(),
+                         'Categories': self.chosen_categories.get(0, 'end'),
+                         'Category colors': self.chosen_colors.get(0, 'end'),
+                         'Target value 1': self.target_value_box.get(),
+                         'Target value 2': self.target_value_box_two.get(),
+                         'Empty value placeholder': self.zero_type.get(),
+                         'Nil type': self.nil_type.get(),
+                         'Exclude today': self.exclude_today.get(),
+                         'Plot rolling average': self.rolling_average_on.get(),
+                         'Rolling average interval': self.rolling_average_interval.get()}"""
         """Plots a graph using values taken from various fields, assigned to a list with the following indices:
         0 = title, 1 = start date, 2 = end date, 3 = days ago, 4 = duration setting, 5 = graph type, 6 = min value type
         7 = min value (in hours, if applicable), 8 = min value (minutes), 9 = min value (seconds), 10 = max value type
@@ -708,35 +734,37 @@ class GraphCreator(tk.Frame):
         21 nil type (Keep all nil value, only to left bound, only to right bound, trim both sides), 22 = Exclude today
         23 = plot rolling average, 24 = rolling average section interval (days). Not all values are always used."""
         import matplotlib.pyplot as plt
-        plt.title(configuration[0])
+        plt.title(config['Title'])
         miny = 0
         maxy = None
         exclude_today = ''
-        if configuration[5] == 'Time':
+        if config['Graph Type'] == 'Time':
             filename = "Dedication Record.txt"
             plt.ylabel('Time (hours)')
-            if configuration[6] != 'Automatic':
-                miny = int(configuration[7]) + (int(configuration[8]) / 60) + (int(configuration[9]) / 3600)
-            if configuration[10] != 'Automatic':
-                maxy = int(configuration[11]) + (int(configuration[12]) / 60) + (int(configuration[13]) / 3600)
+            if config['Min Value Type'] != 'Automatic':
+                miny = int(config['Min Value (Hours)']) + (int(config['Min Value (Minutes)']) / 60
+                                                           ) + (int(config['Min Value (Seconds)']) / 3600)
+            if config['Max Value Type'] != 'Automatic':
+                maxy = int(config['Max Value (Hours)']) + (int(config['Max Value (Minutes)']) / 60
+                                                           ) + (int(config['Max Value (Seconds)']) / 3600)
         else:  # Increment
             filename = "Dedication#Record.txt"
-            if configuration[6] != 'Automatic':
-                miny = int(configuration[8])
-            if configuration[10] != 'Automatic':
-                maxy = int(configuration[12])
+            if config['Min Value Type'] != 'Automatic':
+                miny = int(config['Min Value (Minutes)'])
+            if config['Max Value Type'] != 'Automatic':
+                maxy = int(config['Max Value (Minutes)'])
         plt.ylim(miny, maxy)
         contents = util.prepare_backup(filename)
-        if configuration[4] == 'Days ago':
-            if int(configuration[3]) >= len(contents) - 2:
+        if config['Duration Setting'] == 'Days ago':
+            if int(config['Days Ago']) >= len(contents) - 2:
                 plot_dates = contents[3:]
             else:
-                plot_dates = contents[-int(configuration[3]):]
-        elif configuration[4] == 'Date range':
+                plot_dates = contents[-int(config['Days Ago']):]
+        elif config['Duration Setting'] == 'Date range':
             for target_date in enumerate(contents[3:]):
-                if target_date[1].split(' ')[0] == configuration[1]:
+                if target_date[1].split(' ')[0] == config['Start Date']:
                     date_one = target_date[0]
-                if target_date[1].split(' ')[0] == configuration[2]:
+                if target_date[1].split(' ')[0] == config['End Date']:
                     date_two = target_date[0]
             try:
                 plot_dates = contents[date_one + 3:date_two + 4]
@@ -749,53 +777,53 @@ class GraphCreator(tk.Frame):
         del contents
 
         # Setting x-axis labels
-        if configuration[22] is True and plot_dates[-1][0:10] == str(datetime.now()).split()[0]:
+        if config['Exclude Today'] is True and plot_dates[-1][0:10] == str(datetime.now()).split()[0]:
             del plot_dates[-1]
             exclude_today = " (Today excluded)"
 
-        if configuration[15] == 'Line':
+        if config['Graph Format'] == 'Line':
             plt.xlabel(f'Date')
             short_dates = [full_date[5:10] for full_date in plot_dates]
             dots = []
             styles = []
-            for entry in configuration[14].split(':'):
+            for entry in config['Line Styles']:
                 dots.append(entry.split(' ')[0])
                 styles.append(entry.split(' ')[1])
         else:
             bar_locations = []
             bar_labels = []
-            if configuration[4] == 'Days ago':
+            if config['Duration Setting'] == 'Days ago':
                 s = '' if len(plot_dates) == 1 else 's'
                 plt.xlabel(f'Previous {len(plot_dates)} day{s}')
-            elif configuration[4] == 'Date range':
-                plt.xlabel(f'{configuration[1]} to {configuration[2]}{exclude_today}')
+            elif config['Duration Setting'] == 'Date range':
+                plt.xlabel(f"{config['Start Date']} to {config['End Date']}{exclude_today}")
             else:
                 plt.xlabel(f"All recorded dates{exclude_today}")
 
         plot_points = []
         bar_max = []
-        for index, category in enumerate(configuration[16]):
-            plot_points.append(self.get_data_points(category, plot_dates, configuration[5],
-                                                    configuration[20], configuration[15]))
-            if configuration[15] == 'Line':
-                if configuration[17][index] == 'Auto':
+        for index, category in enumerate(config['Categories']):
+            plot_points.append(self.get_data_points(category, plot_dates, config['Graph Type'],
+                                                    config['Empty Value Placeholder'], config['Graph Format']))
+            if config['Graph Format'] == 'Line':
+                if config['Category Colors'][index] == 'Auto':
                     plt.plot(short_dates, plot_points[index], marker=dots[index],
                              linestyle=styles[index], label=category)
                 else:
-                    plt.plot(short_dates, plot_points[index], color=configuration[17][index],
+                    plt.plot(short_dates, plot_points[index], color=config['Category Colors'][index],
                              marker=dots[index], linestyle=styles[index], label=category)
             else:
-                if configuration[17][index] == 'Auto':
+                if config['Category Colors'][index] == 'Auto':
                     plt.bar(int(index), height=sum(plot_points[index]), label=category)
                 else:
                     plt.bar(int(index), height=sum(plot_points[index]),
-                            color=configuration[17][index], label=category)
+                            color=config[17][index], label=category)
                 bar_max.append(sum(plot_points[index]))
                 bar_locations.append(int(index))
                 bar_labels.append(category)
 
         # Setting X and Y limits (automatic)
-        if configuration[10] == 'Automatic':
+        if config['Max Value Type'] == 'Automatic':
             if bar_max:
                 maxy = max(bar_max)
             else:
@@ -803,25 +831,25 @@ class GraphCreator(tk.Frame):
                     maxy = max([item for group in plot_points for item in group if item is not None])
                 except (TypeError, ValueError):
                     pass
-            if configuration[18] != 'None' and configuration[18] != '' and float(configuration[18]) > maxy:
-                maxy = float(configuration[18]) + 0.5
+            if config['Target Value 1'] not in ('None', '') and float(config['Target Value 1']) > maxy:
+                maxy = float(config['Target Value 1']) + 0.5
             if maxy == 0:
                 maxy = 1
             plt.ylim(miny, maxy)
 
         second = 'Target'
-        if configuration[18] not in ['None', ''] and float(configuration[18]) > 0:
-            plt.axhline(y=float(configuration[18]), color='black', label='Target')
+        if config['Target Value 1'] not in ('None', '') and float(config['Target Value 1']) > 0:
+            plt.axhline(y=float(config['Target Value 1']), color='black', label='Target')
             second = None
-        if configuration[19] not in ['None', ''] and float(configuration[19]) > 0:
-            plt.axhline(y=float(configuration[19]), color='black', label=second)
-        if configuration[15] == 'Line':
-            if configuration[20] == 'Nil' and configuration[21] != 'Min':
+        if config['Target Value 2'] not in ('None', '') and float(config['Target Value 2']) > 0:
+            plt.axhline(y=float(config['Target Value 2']), color='black', label=second)
+        if config['Graph Format'] == 'Line':
+            if config['Empty Value Placeholder'] == 'Nil' and config['Nil Type'] != 'Min':
                 start = end = None
-                if (configuration[21] == 'All' or configuration[21] == 'Left'
+                if (config['Nil Type'] == 'All' or config['Nil Type'] == 'Left'
                  ) and any(plot[0] is None for plot in plot_points):
                     start = 0
-                if (configuration[21] == 'All' or configuration[21] == 'Right'
+                if (config['Nil Type'] == 'All' or config['Nil Type'] == 'Right'
                  ) and any(plot[-1] is None for plot in plot_points):
                     end = 0
                 if start is not None or end is not None:  # Extends Nil graph range
@@ -829,17 +857,17 @@ class GraphCreator(tk.Frame):
                     invisible_graph_extender[0] = start
                     invisible_graph_extender[-1] = end
                     plt.plot(short_dates, invisible_graph_extender, linestyle='None')
-            if configuration[23] is True and configuration[24] != 1:
+            if config['Plot Rolling Average'] is True and config['Rolling Average Interval'] != 1:
                 from statistics import mean
-                if configuration[24] in ('0', 'All'):
+                if config['Rolling Average Interval'] in ('0', 'All'):
                     plt.plot(short_dates, [mean(plot_points[0][:index+1]) for index in range(len(plot_points[0]))],
-                             label=f"Rolling average ({configuration[16][0]})", color='#444444')
+                             label=f"Rolling average ({config['Categories'][0]})", color='#444444')
                 else:
-                    chunk_size = int(configuration[24])
+                    chunk_size = int(config['Rolling Average Interval'])
                     try:
                         plt.plot(short_dates[:chunk_size], [mean(plot_points[0][chunk_size:chunk_size + index + 1])
                                                             for index in range(chunk_size)],
-                                 label=f"Rolling average ({configuration[16][0]})", color='#444444')
+                                 label=f"Rolling average ({config['Categories'][0]})", color='#444444')
                     except TypeError:
                         pass
                     for chunk_num in range(int(len(short_dates)/chunk_size))[1:]:
@@ -851,7 +879,7 @@ class GraphCreator(tk.Frame):
                             break
 
             plt.legend()
-            if configuration[5] == 'Time':
+            if config['Graph Type'] == 'Time':
                 font_size = int(10 - (len(short_dates)) / 40)
                 if font_size < 1:
                     font_size = 1
@@ -895,14 +923,16 @@ class GraphCreator(tk.Frame):
         return mode_plot_points
 
 
-def main():
-    util.ensure_data_file_existence(str(str(datetime.now()).split()[0]))
+def get_dedication_mode_file() -> str:
+    current_date = str(str(datetime.now()).split()[0])
+    util.ensure_data_file_existence(current_date, "Dedication Record.txt")
+    util.ensure_data_file_existence(current_date, "Dedication#Record.txt")
     with open(r"Dedication Record.txt", 'r') as file:
         dedication_mode_file = file.readline()[0:21]
-    GraphCreator(all_categories_time=util.get_categories_from_file(filename="Dedication Record.txt"),
-                 all_categories_increment=util.get_categories_from_file(filename="Dedication#Record.txt"),
-                 dedication_mode_file=dedication_mode_file).mainloop()
+    return dedication_mode_file
 
 
 if __name__ == "__main__":
-    main()
+    GraphCreator(dedication_mode_file=get_dedication_mode_file(),
+                 all_categories_time=util.get_categories_from_file(filename="Dedication Record.txt"),
+                 all_categories_increment=util.get_categories_from_file(filename="Dedication#Record.txt")).mainloop()

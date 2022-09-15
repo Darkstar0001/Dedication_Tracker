@@ -147,26 +147,15 @@ class DedicationTracker(tk.Frame):
         self.toggle_timer_button.grid(row=2, column=1)
 
     def set_internal_time(self):
-        seconds = minutes = hours = 0
-        if self.current_category.get() != '':
-            category_index, start_time = self.get_current_category_data()
-            try:
-                start_time = start_time[category_index + 2].split(':')
-                if start_time[0].lstrip('0') != '':
-                    hours = int(start_time[0])
-                else:
-                    hours = 0
-                if start_time[1].lstrip('0') != '':
-                    minutes = int(start_time[1])
-                else:
-                    minutes = 0
-                if start_time[2].lstrip('0') != '':
-                    seconds = int(start_time[2])
-                else:
-                    seconds = 0
-            except (IndexError, TypeError):
-                pass
-        self.current_category_time = timedelta(seconds=seconds, minutes=minutes, hours=hours)
+        if self.current_category.get() == '':
+            self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
+            return
+        category_index, start_time = self.get_current_category_data()
+        try:
+            hours, minutes, seconds = start_time[category_index + 2].split(':')
+            self.current_category_time = timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds))
+        except (IndexError, TypeError):
+            self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
 
     def set_timer(self):
         self.timer_is_on = False
@@ -310,7 +299,6 @@ class DedicationTracker(tk.Frame):
             else:
                 _, today_categories = self.get_current_category_data()
                 if category_index := self.get_category_index(category_list=today_categories, current_category=self.current_category.get()):
-                    print(category_index)
                     self.increment = today_categories[category_index + 2]
                 else:
                     self.increment = 0
@@ -329,17 +317,17 @@ class DedicationTracker(tk.Frame):
     def create_category(self, new_category: str):
         if new_category == '' or new_category in self.all_categories:
             return
-        if any(char in new_category for char in (':', '|', '~', '  ')):
-            tk.messagebox.showwarning('Invalid category name', "Category names may not contain a colon : bar |"
+        if any(char in new_category for char in ('|', '~', '  ')):
+            tk.messagebox.showwarning('Invalid category name', "Category names may not contain a bar |"
                                                                " tilde ~ or consecutive empty spaces '  '.")
             return
         if len(new_category) > 24:
             if not tk.messagebox.askyesno('Long category name', 'Long category names may cause display issues.'
                                                                 ' Are you sure you wish to proceed?',
                                           icon='warning'):
-                return None
+                return
         new = util.prepare_backup(self.dedication_mode_file)
-        new[2] = f"{new[2][:-1]}{new_category} : \n"
+        new[2] = f"{new[2][:-1]}{new_category} | \n"
         with open(self.dedication_mode_file, 'w') as file:
             file.write(''.join(new))
         self.all_categories.append(new_category)
@@ -361,8 +349,9 @@ class DedicationTracker(tk.Frame):
                     self.current_category_time = timedelta(seconds=0)
                     if self.dedication_mode_file == "Dedication Record.txt":
                         self.set_timer()
-                    return tk.messagebox.showinfo('New day notice', "Previous day's results have been saved.\n"
-                                                  "The timer and categories have been reset for the new day.")
+                    tk.messagebox.showinfo('New day notice', "Previous day's results have been saved.\n"
+                                           "The timer and categories have been reset for the new day.")
+                    return
         self.add_today_category(self.current_category.get())
         saved_line = util.prepare_backup(self.dedication_mode_file)[-1].split(' ')
         category_index = self.get_category_index(category_list=saved_line, current_category=self.current_category.get())

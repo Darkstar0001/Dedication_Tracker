@@ -55,7 +55,7 @@ def get_categories_from_file(filename: str) -> list:
     with open(filename, 'r') as file:
         next(file)
         next(file)
-        categories = file.readline().split(':')[1:-1]
+        categories = file.readline().split('|')[1:-1]
     return [category_name.strip() for category_name in categories]
 
 
@@ -74,7 +74,7 @@ def ensure_data_file_existence(current_date: str, filename: str):
         header = filename+' - ' if ' ' in filename else ''
         with open(filename, 'a') as file:
             file.write(f"{header}Modifying this file directly may render it unreadable to the program.\n"
-                       f"Dedication tracking started on {current_date}\nSaved categories include: \n{current_date} | ")
+                       f"Dedication tracking started on {current_date}\nSaved categories include: | \n{current_date} | ")
 
 
 def prepare_backup(filename: str):

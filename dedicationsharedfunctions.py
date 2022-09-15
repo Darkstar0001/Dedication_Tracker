@@ -15,7 +15,8 @@ def verify_spaced_name(category_list: list, category: str):
             for num, word in enumerate(current_category_list_form):
                 if word != category_list[index + num]:
                     break
-                if current_category_list_form[-1] == category_list[index + num] and category_list[index + num + 1] == '':
+                if current_category_list_form[-1] == category_list[index + num] and\
+                        category_list[index + num + 1] in ('', '~'):
                     return index + num
 
 

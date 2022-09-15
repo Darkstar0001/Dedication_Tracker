@@ -38,9 +38,9 @@ def select_delete(target_listbox: tk.Listbox, filename: str, dedication_tracker)
         with open("Graph Config.txt", "w+") as file:
             file.write(''.join(new))
     else:
-        category_line = new[2].split(':')
+        category_line = new[2].split('|')
         del category_line[target_num + 1]
-        category_line = ''.join(category_line) + ' : \n' if len(category_line) == 1 else ':'.join(category_line)
+        category_line = ''.join(category_line) + ' | \n' if len(category_line) == 1 else '|'.join(category_line)
         new[2] = category_line
         with open(filename, "w+") as file:
             file.write(''.join(new))

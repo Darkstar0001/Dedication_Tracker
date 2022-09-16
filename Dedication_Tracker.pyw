@@ -18,7 +18,7 @@ class DedicationTracker(tk.Frame):
                  "increment_field", "increment_submit", "category_toggle_button", "children", "_w")
 
     def __init__(self):
-        root = tk.Tk()
+        self.root = tk.Tk()
         tk.Frame.__init__(self)
         self.master.title("Dedication Tracker")
         self.master.geometry("500x270")
@@ -56,7 +56,7 @@ class DedicationTracker(tk.Frame):
         self.dedication_mode_toggle_button.grid(row=2, column=1, padx=(310, 0), pady=(0, 50))
 
         self.timer_increment_label = tk.Label(self.counter_frame, text='0', font='arial 70')
-        self.toggle_timer_button = tk.Button(self, text="Start", command=self.timer_on, font='arial 30')
+        self.toggle_timer_button = tk.Button(self, text="Start", command=self.start_timer, font='arial 30')
 
         self.timer_increment_label = tk.Label(self.counter_frame, text=self.increment, font='arial 70')
         self.increment_field = tk.Entry(self)
@@ -80,7 +80,7 @@ class DedicationTracker(tk.Frame):
             #  Sets category to the words in between the first and second blank spaces in today_categories
             self.incoming_category.set(' '.join(today_categories[2:today_categories[today_categories.index('') + 1:].index('') + 2]))
             self.category_toggle()
-        root.protocol('WM_DELETE_WINDOW', self.shutdown)  # Enable auto-save on exit
+        self.root.protocol('WM_DELETE_WINDOW', self.shutdown)  # Enable auto-save on exit
 
         start_new_thread(self.run_timer, ())
         start_new_thread(self.run_autosaver, ())
@@ -123,8 +123,8 @@ class DedicationTracker(tk.Frame):
         if not initial:
             self.save_records()
 
-            for target in (self.increment_field, self.increment_submit):
-                target.grid_forget()
+            self.increment_field.grid_forget()
+            self.increment_submit.grid_forget()
 
             self.increment_field.delete(0, 'end')
 
@@ -132,7 +132,7 @@ class DedicationTracker(tk.Frame):
             with open("Dedication Record.txt", 'r+') as file:
                 file.write("Dedication Record.txt")
 
-            if right_now := str(datetime.now()).split()[0] != self.current_date:
+            if (right_now := str(datetime.now()).split()[0]) != self.current_date:
                 self.date_update(right_now)
 
         self.dedication_mode_toggle_button.config(
@@ -158,38 +158,44 @@ class DedicationTracker(tk.Frame):
             self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
 
     def set_timer(self):
-        self.timer_is_on = False
         self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
-        self.toggle_timer_button.config(text="Start", command=self.timer_on)
+        self.toggle_timer_button.config(text="Start", command=self.start_timer)
 
-    def timer_on(self):
+    def start_timer(self):
         if self.current_category.get().strip() == '':
-            return tk.messagebox.showwarning('No category selected',
-                                             'Please select a category from the drop-down menu to start adding time.')
-        self.toggle_timer_button.config(text="Pause", command=self.timer_off, font='arial 25')
+            tk.messagebox.showwarning('No category selected',
+                                      'Please select a category from the drop-down menu to start adding time.')
+            return
+        self.toggle_timer_button.config(text="Pause", command=self.stop_timer, font='arial 25')
         self.timer_is_on = True
         self.timer.set()
 
-    def timer_off(self):
-        self.toggle_timer_button.config(text="Start", command=self.timer_on, font='arial 30')
+    def stop_timer(self):
+        self.toggle_timer_button.config(text="Start", command=self.start_timer, font='arial 30')
         self.timer_is_on = False
         self.save_records()
 
     def run_timer(self):
-        one_second = timedelta(seconds=1)
+        self.scheduled = []
         while True:
             self.timer = Event()
             self.timer.wait()
+            for _ in range(len(self.scheduled)):
+                self.root.after_cancel(self.scheduled.pop())
             sleep(1)
-            while self.timer_is_on:
-                self.current_category_time += one_second
-                self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
-                if (right_now := str(datetime.now()).split()[0]) != self.current_date:
-                    self.date_update(right_now)
-                sleep(0.992)  # 0.992 seems most accurate relative to system time
+            self.timer_increment()
+
+    def timer_increment(self):
+        if not self.timer_is_on:
+            return
+        self.scheduled.append(self.root.after(1000, self.timer_increment))
+        self.current_category_time += timedelta(seconds=1)
+        self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+        if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+            self.date_update(right_now)
 
     def date_update(self, right_now: str):
-        self.save_records()
+        self.stop_timer() if self.dedication_mode_file == "Dedication Record.txt" else self.save_records()
         self.current_date_label.config(text=right_now)
         self.current_date = right_now
         if self.dedication_mode_file == "Dedication Record.txt":
@@ -262,7 +268,7 @@ class DedicationTracker(tk.Frame):
                 self.increment = 0
                 self.current_category_time = timedelta(seconds=0)
                 if self.dedication_mode_file == "Dedication Record.txt":
-                    self.timer_off()
+                    self.stop_timer()
                     self.set_timer()
                 else:
                     self.timer_increment_label.config(text="0")

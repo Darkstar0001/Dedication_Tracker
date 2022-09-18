@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox, colorchooser
-from datetime import datetime, date
+from datetime import date
 from tkcalendar.calendar_ import Calendar
 from os.path import exists, getsize
 from math import log
 import csv
 import dedicationsharedfunctions as util
-# matplotlib is imported within the graph class's graphing function, to improve program startup speed
+# matplotlib is imported within GraphCreator.graph_create(), to improve program startup speed
 
 
 class GraphCreator(tk.Frame):
@@ -41,8 +41,8 @@ class GraphCreator(tk.Frame):
         self.columnconfigure(0, weight=1)
         self.columnconfigure(5, weight=1)
 
-        self.first_time_date = date(*self.get_start_date("Dedication Record.txt"))
-        self.first_increment_date = date(*self.get_start_date("Dedication#Record.txt"))
+        self.first_time_date = date.fromisoformat(self.get_start_date("Dedication Record.txt"))
+        self.first_increment_date = date.fromisoformat(self.get_start_date("Dedication#Record.txt"))
 
         self.all_categories_time = tuple(all_categories_time)
         self.all_categories_increment = tuple(all_categories_increment)
@@ -259,7 +259,7 @@ class GraphCreator(tk.Frame):
         with open(filename, 'r') as file:
             for _ in range(3):
                 next(file)
-            return [int(digit) for digit in file.readline()[:10].split('-')]
+            return file.readline()[:10]
 
     def triple_scroll(self, *args):
         self.chosen_categories.yview(*args)
@@ -325,18 +325,16 @@ class GraphCreator(tk.Frame):
         date_window.protocol('WM_DELETE_WINDOW', lambda: self.__date_window_close(date_window))
 
         if date_type == 'start' and self.end_date.get() != '':
-            a, b, c = self.end_date.get().split('-')
-            maximum = date(int(a), int(b), int(c))
+            maximum = date.fromisoformat(self.end_date.get())
         else:
-            maximum = datetime.now()
+            maximum = date.today()
         if date_type == 'start' or (date_type == 'end' and self.start_date.get() == ''):
             if self.dedication_mode_file == "Dedication Record.txt":
                 minimum = self.first_time_date
             else:
                 minimum = self.first_increment_date
         else:
-            a, b, c = self.start_date.get().split('-')
-            minimum = date(int(a), int(b), int(c))
+            minimum = date.fromisoformat(self.start_date.get())
         date_picker = Calendar(date_window, selectmode='day', mindate=minimum, maxdate=maximum,
                                date_pattern='yyyy-mm-dd')
         date_picker.grid()
@@ -522,13 +520,12 @@ class GraphCreator(tk.Frame):
     def graph_error_check(self, mode: str, graph_name: str):
         if mode == 'save':
             if len(graph_name) > 40:
-                if not tk.messagebox.askyesno('Excessive name length', 'Long config names may result in display issues. Are'
-                                                                       ' you sure you wish to proceed?', icon='warning',
-                                              parent=self.graph_creator):
+                if not tk.messagebox.askyesno('Excessive name length', 'Long config names may result in display issues.'
+                                              ' Are you sure you wish to proceed?', icon='warning', parent=self.graph_creator):
                     return False
             if graph_name == '':
-                tk.messagebox.showwarning('Empty name field', 'Graph name is required when saving configuration to a file.',
-                                          parent=self.graph_creator)
+                tk.messagebox.showwarning('Empty name field', 'Graph name is required when saving '
+                                                              'configuration to a file.', parent=self.graph_creator)
                 return False
         if self.max_value_mode.get() == self.min_value_mode.get() != 'Automatic':
             if self.minmax_error_check():
@@ -701,38 +698,30 @@ class GraphCreator(tk.Frame):
 
     def graph_create(self, config: dict):
         """{'Title': self.graph_name_entry.get(),
-                         'Start date': self.start_date.get(),
-                         'End date': self.end_date.get(),
-                         'Days ago': self.days_ago_field.get(),
-                         'Duration setting': self.duration_mode.get(),
-                         'Graph type': self.graph_type.get(),
-                         'Min value type': self.min_value_mode.get(),
-                         'Min value (hours)': self.min_value_hours.get(),
-                         'Min value minutes': self.min_value_minutes.get(),
-                         'Min value (seconds)': self.min_value_seconds.get(),
-                         'Max value type': self.max_value_mode.get(),
-                         'Max value (hours)': self.max_value_hours.get(),
-                         'Max value (minutes)': self.max_value_minutes.get(),
-                         'Max value (seconds)': self.max_value_seconds.get(),
-                         'Line styles': self.chosen_line_styles.get(0, 'end'),
-                         'Graph format': self.graph_format.get(),
-                         'Categories': self.chosen_categories.get(0, 'end'),
-                         'Category colors': self.chosen_colors.get(0, 'end'),
-                         'Target value 1': self.target_value_box.get(),
-                         'Target value 2': self.target_value_box_two.get(),
-                         'Empty value placeholder': self.zero_type.get(),
-                         'Nil type': self.nil_type.get(),
-                         'Exclude today': self.exclude_today.get(),
-                         'Plot rolling average': self.rolling_average_on.get(),
-                         'Rolling average interval': self.rolling_average_interval.get()}"""
-        """Plots a graph using values taken from various fields, assigned to a list with the following indices:
-        0 = title, 1 = start date, 2 = end date, 3 = days ago, 4 = duration setting, 5 = graph type, 6 = min value type
-        7 = min value (in hours, if applicable), 8 = min value (minutes), 9 = min value (seconds), 10 = max value type
-        11 = max value (in hours, if applicable), 12 = max value (minutes), 13 = max value (seconds)
-        14 = line styles (dot/flat dashed/solid), 15 = graph format (Line or Bar), 16 = selected categories
-        17 = corresponding colors, 18 = Target value one, 19 = Target value two, 20 = empty value placeholder
-        21 nil type (Keep all nil value, only to left bound, only to right bound, trim both sides), 22 = Exclude today
-        23 = plot rolling average, 24 = rolling average section interval (days). Not all values are always used."""
+         'Start date': self.start_date.get(),
+         'End date': self.end_date.get(),
+         'Days ago': self.days_ago_field.get(),
+         'Duration setting': self.duration_mode.get(),
+         'Graph type': self.graph_type.get(),
+         'Min value type': self.min_value_mode.get(),
+         'Min value (hours)': self.min_value_hours.get(),
+         'Min value minutes': self.min_value_minutes.get(),
+         'Min value (seconds)': self.min_value_seconds.get(),
+         'Max value type': self.max_value_mode.get(),
+         'Max value (hours)': self.max_value_hours.get(),
+         'Max value (minutes)': self.max_value_minutes.get(),
+         'Max value (seconds)': self.max_value_seconds.get(),
+         'Line styles': self.chosen_line_styles.get(0, 'end'),
+         'Graph format': self.graph_format.get(),
+         'Categories': self.chosen_categories.get(0, 'end'),
+         'Category colors': self.chosen_colors.get(0, 'end'),
+         'Target value 1': self.target_value_box.get(),
+         'Target value 2': self.target_value_box_two.get(),
+         'Empty value placeholder': self.zero_type.get(),
+         'Nil type': self.nil_type.get(),
+         'Exclude today': self.exclude_today.get(),
+         'Plot rolling average': self.rolling_average_on.get(),
+         'Rolling average interval': self.rolling_average_interval.get()}"""
         import matplotlib.pyplot as plt
         plt.title(config['Title'])
         miny = 0
@@ -777,7 +766,7 @@ class GraphCreator(tk.Frame):
         del contents
 
         # Setting x-axis labels
-        if config['Exclude Today'] is True and plot_dates[-1][0:10] == str(datetime.now()).split()[0]:
+        if config['Exclude Today'] is True and plot_dates[-1][0:10] == str(date.today()):
             del plot_dates[-1]
             exclude_today = " (Today excluded)"
 
@@ -924,7 +913,7 @@ class GraphCreator(tk.Frame):
 
 
 def get_dedication_mode_file() -> str:
-    current_date = str(str(datetime.now()).split()[0])
+    current_date = str(date.today())
     util.ensure_data_file_existence(current_date, "Dedication Record.txt")
     util.ensure_data_file_existence(current_date, "Dedication#Record.txt")
     with open(r"Dedication Record.txt", 'r') as file:

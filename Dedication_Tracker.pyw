@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from sys import exit
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from time import sleep
 from _thread import start_new_thread
 from threading import Event
@@ -26,7 +26,7 @@ class DedicationTracker(tk.Frame):
         self.place(relx=0.5, relwidth=1, anchor='n')
         self.columnconfigure(0, weight=1)
         self.columnconfigure(3, weight=1)
-        self.current_date = str(datetime.now()).split()[0]
+        self.current_date = str(date.today())
         self.incoming_category = tk.StringVar()
         self.current_category = tk.StringVar()
         self.increment = 0
@@ -91,16 +91,10 @@ class DedicationTracker(tk.Frame):
                 file.seek(-2, 2)
                 while file.read(1) != b'\n':
                     file.seek(-2, 1)
-                read_date = file.readline().decode()[:10]
-                read_date = datetime(int(''.join(read_date.split('-')[0])),
-                                     int(''.join(read_date.split('-')[1])),
-                                     int(''.join(read_date.split('-')[2])))
-                while True:
-                    if str(read_date).split(' ')[0] != self.current_date:
-                        read_date += timedelta(days=1)
-                        file.write(bytes(f"\n{str(read_date).split(' ')[0]} | ", 'utf-8'))
-                    else:
-                        break
+                read_date = date.fromisoformat(file.readline().decode()[:10])
+                while str(read_date) != self.current_date:
+                    read_date += timedelta(days=1)
+                    file.write(bytes(f"\n{str(read_date).split(' ')[0]} | ", 'utf-8'))
         except PermissionError:
             tk.Label(self, text="Error in reading or creating file.\nIs there another file titled\n"
                                 f"{self.dedication_mode_file} \nin the directory?",
@@ -121,8 +115,6 @@ class DedicationTracker(tk.Frame):
 
     def initialize_time_mode(self, initial=False):
         if not initial:
-            self.save_records()
-
             self.increment_field.grid_forget()
             self.increment_submit.grid_forget()
 
@@ -132,7 +124,7 @@ class DedicationTracker(tk.Frame):
             with open("Dedication Record.txt", 'r+') as file:
                 file.write("Dedication Record.txt")
 
-            if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+            if (right_now := str(date.today())) != self.current_date:
                 self.date_update(right_now)
 
         self.dedication_mode_toggle_button.config(
@@ -187,7 +179,7 @@ class DedicationTracker(tk.Frame):
         self.scheduled.append(self.root.after(1000, self.timer_increment))
         self.current_category_time += timedelta(seconds=1)
         self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
-        if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+        if (right_now := str(date.today())) != self.current_date:
             self.date_update(right_now)
 
     def date_update(self, right_now: str):
@@ -217,7 +209,7 @@ class DedicationTracker(tk.Frame):
             with open("Dedication Record.txt", 'r+') as file:
                 file.write("Dedication#Record.txt")
             self.dedication_mode_file = "Dedication#Record.txt"
-            if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+            if (right_now := str(date.today())) != self.current_date:
                 self.date_update(right_now)
 
         self.all_categories = self.all_categories_increment
@@ -230,7 +222,7 @@ class DedicationTracker(tk.Frame):
         self.increment_submit.grid(row=2, column=1, pady=(35, 0))
 
     def update_increment(self, increment: str):
-        if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+        if (right_now := str(date.today())) != self.current_date:
             self.date_update(right_now)
         if self.current_category.get().strip() == '':
             tk.messagebox.showwarning('No category selected',
@@ -363,7 +355,7 @@ class DedicationTracker(tk.Frame):
         category_index = self.get_category_index(category_list=saved_line, current_category=self.current_category.get())
         if self.dedication_mode_file == "Dedication Record.txt":
             saved_line[category_index + 2] = str(self.current_category_time).rjust(8, '0')
-        else:
+        else:  # Increment mode
             saved_line[category_index + 2] = str(self.increment)
         saved_line = ' '.join(saved_line)
         with open(self.dedication_mode_file, "r+b") as file:
@@ -376,13 +368,13 @@ class DedicationTracker(tk.Frame):
     def run_autosaver(self):
         while True:
             sleep(300)
-            if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+            if (right_now := str(date.today())) != self.current_date:
                 self.date_update(right_now)
             else:
                 self.save_records()
 
     def basic_view(self):
-        if (right_now := str(datetime.now()).split()[0]) != self.current_date:
+        if (right_now := str(date.today())) != self.current_date:
             self.date_update(right_now)
         basic_window = tk.Toplevel(self)
         basic_window.resizable(False, False)

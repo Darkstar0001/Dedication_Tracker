@@ -141,7 +141,7 @@ class DedicationTracker(tk.Frame):
         self.all_categories = self.all_categories_time
         self.set_up_categories(initial=True)
         self.set_internal_time()
-        self.set_timer()
+        self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))  # Visually sets timer
 
         self.timer_increment_label.grid(row=0, column=3, columnspan=3)
         self.toggle_timer_button.grid(row=2, column=1)
@@ -156,10 +156,6 @@ class DedicationTracker(tk.Frame):
             self.current_category_time = timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds))
         except (IndexError, TypeError):
             self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
-
-    def set_timer(self):
-        self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
-        self.toggle_timer_button.config(text="Start", command=self.start_timer)
 
     def start_timer(self):
         if self.current_category.get().strip() == '':
@@ -195,14 +191,21 @@ class DedicationTracker(tk.Frame):
             self.date_update(right_now)
 
     def date_update(self, right_now: str):
-        self.stop_timer() if self.dedication_mode_file == "Dedication Record.txt" else self.save_records()
+        timer = self.timer_is_on
+        if increment := (self.dedication_mode_file == "Dedication#Record.txt"):
+            self.save_records()
+        else:  # Time mode
+            self.stop_timer()
         self.current_date_label.config(text=right_now)
         self.current_date = right_now
-        if self.dedication_mode_file == "Dedication Record.txt":
-            self.set_internal_time()
-            self.set_timer()
-        start_new_thread(self.save_records, (False, True))  # Start entry for next day
-        self.set_up_categories(initial=True)
+        if self.save_records(increment=increment, new_day=True):  # Start entry for next day
+            self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
+            self.increment = 0
+            if self.dedication_mode_file == "Dedication Record.txt":
+                self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+            self.set_up_categories(initial=True)
+        if self.dedication_mode_file == "Dedication Record.txt" and timer:
+            self.start_timer()
 
     def initialize_increment_mode(self, initial=False):
         if not initial:
@@ -269,7 +272,7 @@ class DedicationTracker(tk.Frame):
                 self.current_category_time = timedelta(seconds=0)
                 if self.dedication_mode_file == "Dedication Record.txt":
                     self.stop_timer()
-                    self.set_timer()
+                    self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
                 else:
                     self.timer_increment_label.config(text="0")
         if category_num != 0:
@@ -301,7 +304,7 @@ class DedicationTracker(tk.Frame):
             self.current_category.set(self.incoming_category.get())
             if self.dedication_mode_file == "Dedication Record.txt":
                 self.set_internal_time()
-                self.set_timer()
+                self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
             else:
                 _, today_categories = self.get_current_category_data()
                 if category_index := self.get_category_index(category_list=today_categories, current_category=self.current_category.get()):
@@ -351,13 +354,10 @@ class DedicationTracker(tk.Frame):
                     file.seek(-2, 1)
                 if file.readline().decode()[:10] != self.current_date:  # Should always proceed
                     file.write(bytes(f"\n{str(self.current_date)} | ", 'utf-8'))
-                    self.increment = 0
-                    self.current_category_time = timedelta(seconds=0)
-                    if self.dedication_mode_file == "Dedication Record.txt":
-                        self.set_timer()
                     tk.messagebox.showinfo('New day notice', "Previous day's results have been saved.\n"
                                            "The timer and categories have been reset for the new day.")
-                    return
+                    return True
+            return
         self.add_today_category(self.current_category.get())
         saved_line = util.prepare_backup(self.dedication_mode_file)[-1].split(' ')
         category_index = self.get_category_index(category_list=saved_line, current_category=self.current_category.get())
@@ -423,8 +423,11 @@ class DedicationTracker(tk.Frame):
         try:
             self.save_records()
         except Exception as e:
-            if not tk.messagebox.askyesno('Autosave failed', 'An error occurred when attempting to save your work on '
-                                          f'exit.\n"{e}"\nDo you wish to quit anyway?', icon='warning'): return
+            if not tk.messagebox.askyesno(
+                    'Autosave failed', f'An error occurred when attempting to save your work on exit.\n"{e}"\nIt is '
+                                       'possible that your work was not recorded properly during this session, so you '
+                                       'may wish to record it manually. \nDo you want to quit anyway?', icon='warning'):
+                return
         exit()
 
 

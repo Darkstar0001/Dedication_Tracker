@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, colorchooser
 from datetime import date
-from tkcalendar.calendar_ import Calendar
+from tkcalendar import Calendar
 from os.path import exists, getsize
 from math import log
 import csv
@@ -215,8 +215,8 @@ class GraphCreator(tk.Frame):
         self.graph_format_button.config(width=4)
         self.line_dot_text = tk.Label(self.graph_creator, text='Line dot style')
         self.line_dot_text.grid(row=6, column=4, pady=(0, 50))
-        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.', 'o',
-                                                    'Square', 'Triangle', '*', '+', 'x', 'X', '|', '_')
+        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.', '●',
+                                                    '◼', '▲', '*', '+', 'x', 'X', '|', '_')
         self.line_dot_style_options.grid(row=6, column=4)
         self.line_dash_text = tk.Label(self.graph_creator, text='Line style')
         self.line_dash_text.grid(row=6, column=4, pady=(60, 0))
@@ -322,7 +322,7 @@ class GraphCreator(tk.Frame):
         date_window.resizable(False, False)
         date_window.title('Choose a date')
         date_window.grab_set()
-        date_window.protocol('WM_DELETE_WINDOW', lambda: self.__date_window_close(date_window))
+        date_window.protocol('WM_DELETE_WINDOW', lambda: self._date_window_close(date_window))
 
         if date_type == 'start' and self.end_date.get() != '':
             maximum = date.fromisoformat(self.end_date.get())
@@ -335,19 +335,28 @@ class GraphCreator(tk.Frame):
                 minimum = self.first_increment_date
         else:
             minimum = date.fromisoformat(self.start_date.get())
-        date_picker = Calendar(date_window, selectmode='day', mindate=minimum, maxdate=maximum,
-                               date_pattern='yyyy-mm-dd')
+        if date_type == 'start':
+            year = int(str(minimum)[:4])
+            month = int(str(minimum)[5:7])
+            day = int(str(minimum)[8:])
+        else:
+            year = int(str(maximum)[:4])
+            month = int(str(maximum)[5:7])
+            day = int(str(maximum)[8:])
+        date_picker = Calendar(
+                date_window, selectmode='day', mindate=minimum, maxdate=maximum, date_pattern='yyyy-mm-dd',
+                font='arial 11', year=year, month=month, day=day, showweeknumbers=False, weekendbackground='#ffffff',
+                othermonthwebackground='#ededed', disableddaybackground='#cccccc')
         date_picker.grid()
-        tk.Button(date_window, text='Set', command=lambda: self.__set_date(date_type, date_picker.get_date(),
-                                                                           date_window)).grid(ipadx=20)
+        tk.Button(date_window, text='Set', command=lambda: self._set_date(
+            date_type=date_type, chosen_date=date_picker.get_date(), date_window=date_window)).grid(ipadx=20)
 
-    def __set_date(self, date_type: str, chosen_date, date_window):
+    def _set_date(self, date_type: str, chosen_date: str, date_window: tk.Toplevel):
         field = self.start_date if date_type == 'start' else self.end_date
         self.spin_entry_insert(field, chosen_date, False, 'disabled')
-        if date_window:
-            self.__date_window_close(date_window)
+        self._date_window_close(date_window)
 
-    def __date_window_close(self, date_window):
+    def _date_window_close(self, date_window: tk.Toplevel):
         date_window.destroy()
         self.graph_creator.grab_set()
 
@@ -396,12 +405,13 @@ class GraphCreator(tk.Frame):
     def translate_style_name(dot: str) -> str:
         if dot == 'Flat':
             return 'None'
-        elif dot == 'Square':
+        if dot == '●':
+            return 'o'
+        if dot == '◼':
             return 's'
-        elif dot == 'Triangle':
+        if dot == '▲':
             return '^'
-        else:
-            return dot
+        return dot
 
     def remove_category(self, color=False):
         all_categories = self.chosen_categories.get(0, 'end')
@@ -431,7 +441,7 @@ class GraphCreator(tk.Frame):
         try:
             target_num = target_listbox.curselection()[0]
         except (TypeError, tk.TclError, IndexError):
-            return None
+            return
         target_listbox.delete(target_num)
         if field == 'Color':
             if self.chosen_color_mode.get() == 'Automatic':
@@ -495,27 +505,29 @@ class GraphCreator(tk.Frame):
                 self.zero_type.get(), self.nil_type.get(), self.exclude_today.get(), self.rolling_average_on.get(),
                 self.rolling_average_interval.get())))
         if mode == 'save':
-            for category in ('Line Styles', 'Categories', 'Category Colors'):
-                configuration[category] = '|'.join(configuration[category])
-            try:
-                if overwrite_line:
-                    util.prepare_backup("Graph Config.csv")  # does not use return value
-                    with open("Graph Config.csv", 'r', newline='') as csvfile:
-                        new = []
-                        new.extend(csv.reader(csvfile))  # csv requires different method to obtain usable file data
-                    new[overwrite_line] = configuration.values()
-                    with open(r"Graph Config.csv", 'w+', newline='') as csvfile:
-                        csv.writer(csvfile).writerows(new)
-                else:
-                    with open(r"Graph Config.csv", 'a', newline='') as csvfile:
-                        csv.DictWriter(csvfile, fieldnames=self.graph_config_categories).writerow(configuration)
-            except PermissionError:
-                tl.messagebox.showerror('Access denied', 'The destination file could not be accessed. Make sure that '
-                                                         'it is not open in another program.')
-            tk.messagebox.showinfo('Configuration saved', 'Graph settings saved successfully.',
-                                   parent=self.graph_creator)
+            self.graph_config_save(configuration=configuration, overwrite_line=overwrite_line)
         else:
             self.graph_create(configuration)
+
+    def graph_config_save(self, configuration: dict, overwrite_line: int | bool):
+        for category in ('Line Styles', 'Categories', 'Category Colors'):
+            configuration[category] = '|'.join(configuration[category])
+        try:
+            if overwrite_line:
+                util.prepare_backup("Graph Config.csv")  # does not use return value
+                with open("Graph Config.csv", 'r', newline='') as csvfile:
+                    new = [line for line in csv.reader(csvfile)]  # csv requires different method for usable file data
+                new[overwrite_line] = configuration.values()
+                with open(r"Graph Config.csv", 'w+', newline='') as csvfile:
+                    csv.writer(csvfile).writerows(new)
+            else:
+                with open(r"Graph Config.csv", 'a', newline='') as csvfile:
+                    csv.DictWriter(csvfile, fieldnames=self.graph_config_categories).writerow(configuration)
+        except PermissionError:
+            tl.messagebox.showerror('Access denied', 'The destination file could not be accessed. Make sure that '
+                                                     'it is not open in another program.')
+        tk.messagebox.showinfo('Configuration saved', 'Graph settings saved successfully.',
+                               parent=self.graph_creator)
 
     def graph_error_check(self, mode: str, graph_name: str):
         if mode == 'save':
@@ -567,8 +579,7 @@ class GraphCreator(tk.Frame):
         if minimum >= maximum:
             return True
 
-    @staticmethod
-    def backup_prompt():
+    def backup_prompt(self):
         if exists("Graph Config.csv.bak") and tk.messagebox.askyesno(
                 'Saved settings not found', 'No saved settings could be found. It is possible that they are either '
                                             'missing or corrupted. Would you like to restore from a backup?',
@@ -593,7 +604,7 @@ class GraphCreator(tk.Frame):
         config_load_window.title("Select a graph configuration to load")
         config_load_window.resizable(False, False)
         config_load_window.grab_set()
-        config_load_window.protocol('WM_DELETE_WINDOW', lambda: self.__config_load_close(config_load_window))
+        config_load_window.protocol('WM_DELETE_WINDOW', lambda: self._config_load_close(config_load_window))
         scroll = tk.Scrollbar(config_load_window)
         scroll.grid(column=1, sticky='ns')
         load_list = tk.Listbox(config_load_window, font='courier 12', width=40, height=20, yscrollcommand=scroll.set)
@@ -630,8 +641,8 @@ class GraphCreator(tk.Frame):
     def full_select_load(self, window: tk.Toplevel, settings: dict, target: str):
         self.graph_name_entry.delete(0, 'end')
         self.graph_name_entry.insert(0, settings['Title'])
-        self.__set_date('start', settings['Start Date'], None)
-        self.__set_date('end', settings['End Date'], None)
+        self.spin_entry_insert(self.start_date, settings['Start Date'], False, 'disabled')
+        self.spin_entry_insert(self.end_date, settings['End Date'], False, 'disabled')
         self.spin_entry_insert(self.days_ago_field, settings['Days Ago'])
         self.duration_mode.set(settings['Duration Setting'])
         self.duration_mode_change(self.duration_mode.get())
@@ -690,9 +701,9 @@ class GraphCreator(tk.Frame):
             self.rolling_average_on.set(False)
             self.spin_entry_insert(self.rolling_average_interval, entry='All', state='disabled')
         tk.messagebox.showinfo('Load complete', f"{target} settings loaded successfully.")
-        self.__config_load_close(window)
+        self._config_load_close(window)
 
-    def __config_load_close(self, window: tk.Toplevel):
+    def _config_load_close(self, window: tk.Toplevel):
         window.destroy()
         self.graph_creator.grab_set()
 
@@ -832,14 +843,16 @@ class GraphCreator(tk.Frame):
             second = None
         if config['Target Value 2'] not in ('None', '') and float(config['Target Value 2']) > 0:
             plt.axhline(y=float(config['Target Value 2']), color='black', label=second)
-        if config['Graph Format'] == 'Line':
+        if config['Graph Format'] == 'Bar':
+            plt.xticks(ticks=bar_locations, labels=bar_labels)
+        else:  # Line
             if config['Empty Value Placeholder'] == 'Nil' and config['Nil Type'] != 'Min':
                 start = end = None
                 if (config['Nil Type'] == 'All' or config['Nil Type'] == 'Left'
-                 ) and any(plot[0] is None for plot in plot_points):
+                  ) and any(plot[0] is None for plot in plot_points):
                     start = 0
                 if (config['Nil Type'] == 'All' or config['Nil Type'] == 'Right'
-                 ) and any(plot[-1] is None for plot in plot_points):
+                  ) and any(plot[-1] is None for plot in plot_points):
                     end = 0
                 if start is not None or end is not None:  # Extends Nil graph range
                     invisible_graph_extender = [None for _ in short_dates]
@@ -873,8 +886,6 @@ class GraphCreator(tk.Frame):
                 if font_size < 1:
                     font_size = 1
                 plt.xticks(rotation=45, ha='right', fontsize=font_size)
-        else:
-            plt.xticks(ticks=bar_locations, labels=bar_labels)
         plt.show()
 
     @staticmethod

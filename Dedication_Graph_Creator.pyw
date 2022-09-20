@@ -23,11 +23,11 @@ class GraphCreator(tk.Frame):
                  'incoming_graph_type', 'start_date_button', 'chosen_colors', 'graph_format_button', 'line_dot_text',
                  'max_value_minutes', 'zero_type_header', 'end_date_button', 'nil_type_header', 'duration_mode',
                  'min_value_minutes', 'selected_option', 'max_value_options', 'graph_creator', 'min_value_seconds',
-                 'min_value_options', 'first_increment_date', 'graph_format', 'days_ago_text', 'start_date',
+                 'min_value_options', 'first_number_date', 'graph_format', 'days_ago_text', 'start_date',
                  'widgetName', 'master', 'tk', '_w', '_name', 'children', 'all_categories_time', 'style_dict',
-                 'all_categories_increment', 'rolling_average_on', 'interval_label', 'rolling_average_interval')
+                 'all_categories_number', 'rolling_average_on', 'interval_label', 'rolling_average_interval')
 
-    def __init__(self, all_categories_time: list, all_categories_increment: list, dedication_mode_file: str):
+    def __init__(self, all_categories_time: list, all_categories_number: list, dedication_mode_file: str):
         if __name__ == "__main__":
             self.graph_creator = tk.Tk()
         else:
@@ -42,10 +42,10 @@ class GraphCreator(tk.Frame):
         self.columnconfigure(5, weight=1)
 
         self.first_time_date = date.fromisoformat(self.get_start_date("Dedication Record.txt"))
-        self.first_increment_date = date.fromisoformat(self.get_start_date("Dedication#Record.txt"))
+        self.first_number_date = date.fromisoformat(self.get_start_date("Dedication#Record.txt"))
 
         self.all_categories_time = tuple(all_categories_time)
-        self.all_categories_increment = tuple(all_categories_increment)
+        self.all_categories_number = tuple(all_categories_number)
 
         self.date_type = tk.StringVar()
         self.duration_mode = tk.StringVar(value='Days ago')
@@ -55,8 +55,8 @@ class GraphCreator(tk.Frame):
             self.graph_type.set('Time')
             self.all_categories = self.all_categories_time
         else:
-            self.graph_type.set('Increment')
-            self.all_categories = self.all_categories_increment
+            self.graph_type.set('Number')
+            self.all_categories = self.all_categories_number
         self.incoming_graph_type = tk.StringVar(value=self.graph_type.get())
         self.max_value_mode = tk.StringVar(value='Automatic')
         self.min_value_mode = tk.StringVar(value='Automatic')
@@ -98,7 +98,7 @@ class GraphCreator(tk.Frame):
         self.days_ago_mode.config(width=10)
 
         tk.Label(self.graph_creator, text='Graph type').grid(row=2, column=1)
-        self.graph_type_options = tk.OptionMenu(self.graph_creator, self.incoming_graph_type, 'Time', 'Increment',
+        self.graph_type_options = tk.OptionMenu(self.graph_creator, self.incoming_graph_type, 'Time', 'Number',
                                                 command=self.graph_type_switch)
         self.graph_type_options.grid(row=3, column=1)
         self.graph_type_options.config(width=9)
@@ -336,7 +336,7 @@ class GraphCreator(tk.Frame):
             if self.dedication_mode_file == "Dedication Record.txt":
                 minimum = self.first_time_date
             else:
-                minimum = self.first_increment_date
+                minimum = self.first_number_date
         else:
             minimum = date.fromisoformat(self.start_date.get())
         if date_type == 'start':
@@ -471,7 +471,7 @@ class GraphCreator(tk.Frame):
             self.all_categories = self.all_categories_time
         else:  # Interval
             self.dedication_mode_file = "Dedication#Record.txt"
-            self.all_categories = self.all_categories_increment
+            self.all_categories = self.all_categories_number
         self.create_minmax_value_spinbox()
         self.graph_type.set(self.incoming_graph_type.get())
         self.selected_option.set('')
@@ -755,7 +755,7 @@ class GraphCreator(tk.Frame):
             if config['Max Value Type'] != 'Automatic':
                 maxy = int(config['Max Value (Hours)']) + (int(config['Max Value (Minutes)']) / 60
                                                            ) + (int(config['Max Value (Seconds)']) / 3600)
-        else:  # Increment
+        else:  # number
             filename = "Dedication#Record.txt"
             if config['Min Value Type'] != 'Automatic':
                 miny = int(config['Min Value (Minutes)'])
@@ -868,15 +868,17 @@ class GraphCreator(tk.Frame):
                     invisible_graph_extender[0] = start
                     invisible_graph_extender[-1] = end
                     plt.plot(short_dates, invisible_graph_extender, linestyle='None')
+            # Plot rolling average. First replaces nil values with 0, using first category to be graphed.
             if config['Plot Rolling Average'] is True and config['Rolling Average Interval'] != 1:
+                plot_points = [plot_point if plot_point is not None else 0 for plot_point in plot_points[0]]
                 from statistics import mean
                 if config['Rolling Average Interval'] in ('0', 'All'):
-                    plt.plot(short_dates, [mean(plot_points[0][:index+1]) for index in range(len(plot_points[0]))],
+                    plt.plot(short_dates, [mean(plot_points[:index+1]) for index in range(len(plot_points))],
                              label=f"Rolling average ({config['Categories'][0]})", color='#444444')
                 else:
                     chunk_size = int(config['Rolling Average Interval'])
                     try:
-                        plt.plot(short_dates[:chunk_size], [mean(plot_points[0][chunk_size:chunk_size + index + 1])
+                        plt.plot(short_dates[:chunk_size], [mean(plot_points[chunk_size:chunk_size + index + 1])
                                                             for index in range(chunk_size)],
                                  label=f"Rolling average ({config['Categories'][0]})", color='#444444')
                     except TypeError:
@@ -884,7 +886,7 @@ class GraphCreator(tk.Frame):
                     for chunk_num in range(int(len(short_dates)/chunk_size))[1:]:
                         try:
                             plt.plot(short_dates[chunk_num*chunk_size:(chunk_num*chunk_size)+chunk_size],
-                                     [mean(plot_points[0][chunk_num*chunk_size:(chunk_num*chunk_size) + index + 1])
+                                     [mean(plot_points[chunk_num*chunk_size:(chunk_num*chunk_size) + index + 1])
                                       for index in range(chunk_size)], color='#444444')
                         except TypeError:
                             break
@@ -900,8 +902,8 @@ class GraphCreator(tk.Frame):
     @staticmethod
     def get_data_points(category: str, dataset: list, graph_type: str, zero_type: str, graph_format: str) -> list:
         """Takes category, dataset (plot_dates (lines from file containing dates to be plotted)),
-        graph_type (Time or Increment), zero_type (Zero or Nil) and graph_format (Line or Bar) and processes the
-        dataset to return the time/increment values for each date in a list that can be used by pyplot"""
+        graph_type (Time or Number), zero_type (Zero or Nil) and graph_format (Line or Bar) and processes the
+        dataset to return the time/number values for each date in a list that can be used by pyplot"""
         category_plot_points = []
         for data_set in dataset:
             for num, data_point in enumerate(data_set.split()):
@@ -942,4 +944,4 @@ def get_dedication_mode_file() -> str:
 if __name__ == "__main__":
     GraphCreator(dedication_mode_file=get_dedication_mode_file(),
                  all_categories_time=util.get_categories_from_file(filename="Dedication Record.txt"),
-                 all_categories_increment=util.get_categories_from_file(filename="Dedication#Record.txt")).mainloop()
+                 all_categories_number=util.get_categories_from_file(filename="Dedication#Record.txt")).mainloop()

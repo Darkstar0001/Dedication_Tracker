@@ -65,7 +65,7 @@ def ensure_data_file_existence(current_date: str, filename: str):
     creates a new data file. Is used to create data files the first time the program is run."""
     type = ''
     if (not exists(filename) or getsize(filename) == 0) and exists(filename+'.bak'):
-        type = 'Time' if filename == "Dedication Record.txt" else 'Increment'
+        type = 'Time' if filename == "Dedication Record.txt" else 'Number'
         if tk.messagebox.askyesno('Empty data file', f'{type} data for Dedication Tracker is missing or corrupted.\n'
                                   'Would you like to restore from a backup?', icon='error'):
             restore_from_backup(filename)

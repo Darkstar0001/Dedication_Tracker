@@ -12,10 +12,10 @@ import dedicationsharedfunctions as util
 class DedicationTracker(tk.Frame):
     __slots__ = ("all_categories", "timer_is_on", "incoming_category",  "_name", "current_category_time",
                  "current_category", "current_date", "dedication_mode", "widgetName", "master", "tk",
-                 "current_date_label", 'dedication_mode_file', "all_categories_increment",
+                 "current_date_label", 'dedication_mode_file', "all_categories_number", "root",
                  "counter_frame", "category_entry", "all_categories_time", "dedication_mode_toggle_button",
-                 "div1", "div2", "toggle_timer_button", "increment_label", "increment", "timer_increment_label",
-                 "increment_field", "increment_submit", "category_toggle_button", "children", "_w")
+                 "div1", "div2", "toggle_timer_button", "number_label", "number", "timer_number_label",
+                 "number_field", "number_submit", "category_toggle_button", "children", "_w")
 
     def __init__(self):
         self.root = tk.Tk()
@@ -29,7 +29,7 @@ class DedicationTracker(tk.Frame):
         self.current_date = str(date.today())
         self.incoming_category = tk.StringVar()
         self.current_category = tk.StringVar()
-        self.increment = 0
+        self.number = 0
         self.timer_is_on = False
 
         util.ensure_data_file_existence(str(self.current_date), "Dedication Record.txt")
@@ -40,7 +40,7 @@ class DedicationTracker(tk.Frame):
         self.current_date_label = tk.Label(self, text=self.current_date, font='arial 40')
         self.current_date_label.grid(column=1)
         tk.Button(self, text="Create Graph", font='arial 10', takefocus=False, command=lambda: dgc.GraphCreator(
-            all_categories_time=self.all_categories_time, all_categories_increment=self.all_categories_increment,
+            all_categories_time=self.all_categories_time, all_categories_number=self.all_categories_number,
             dedication_mode_file=self.dedication_mode_file).tk.mainloop()).grid(row=0, column=1, padx=(380, 0), ipady=5)
         tk.Button(self, text="Basic View", font='arial 10', command=self.basic_view, takefocus=False).grid(
             row=0, column=1, padx=(0, 380), ipady=5)
@@ -55,13 +55,13 @@ class DedicationTracker(tk.Frame):
         self.dedication_mode_toggle_button = tk.Button(self, font='arial 10')
         self.dedication_mode_toggle_button.grid(row=2, column=1, padx=(310, 0), pady=(0, 50))
 
-        self.timer_increment_label = tk.Label(self.counter_frame, text='0', font='arial 70')
+        self.timer_number_label = tk.Label(self.counter_frame, text='0', font='arial 70')
         self.toggle_timer_button = tk.Button(self, text="Start", command=self.start_timer, font='arial 30')
 
-        self.timer_increment_label = tk.Label(self.counter_frame, text=self.increment, font='arial 70')
-        self.increment_field = tk.Entry(self)
-        self.increment_submit = tk.Button(self, text='Update', font='arial 20',
-                                          command=lambda: self.update_increment(self.increment_field.get().strip()))
+        self.timer_number_label = tk.Label(self.counter_frame, text=self.number, font='arial 70')
+        self.number_field = tk.Entry(self)
+        self.number_submit = tk.Button(self, text='Update', font='arial 20',
+                                       command=lambda: self.update_number(self.number_field.get().strip()))
 
         self.category_toggle_button = tk.OptionMenu(self, self.incoming_category, value='')
 
@@ -69,12 +69,12 @@ class DedicationTracker(tk.Frame):
             self.dedication_mode_file = file.readline()[0:21]
 
         self.all_categories_time = util.get_categories_from_file(filename="Dedication Record.txt")
-        self.all_categories_increment = util.get_categories_from_file(filename="Dedication#Record.txt")
+        self.all_categories_number = util.get_categories_from_file(filename="Dedication#Record.txt")
 
         if self.dedication_mode_file == "Dedication Record.txt":
             self.initialize_time_mode(initial=True)
         else:
-            self.initialize_increment_mode(initial=True)
+            self.initialize_number_mode(initial=True)
         _, today_categories = self.get_current_category_data()
         if today_categories[2]:
             #  Sets category to the words in between the first and second blank spaces in today_categories
@@ -105,7 +105,7 @@ class DedicationTracker(tk.Frame):
     def get_current_category_data(self) -> tuple:
         """Reads the last line from the file to see if any categories already have progress for the current date.
         Returns category_index (index in today_categories of first progressed category) and today_categories
-        (list of items on last line of file). Time/increment data is two indices after its category name."""
+        (list of items on last line of file). Time/Number data is two indices after its category name."""
         with open(self.dedication_mode_file, 'rb') as file:
             file.seek(-2, 2)
             while file.read(1) != b'\n':
@@ -115,10 +115,10 @@ class DedicationTracker(tk.Frame):
 
     def initialize_time_mode(self, initial=False):
         if not initial:
-            self.increment_field.grid_forget()
-            self.increment_submit.grid_forget()
+            self.number_field.grid_forget()
+            self.number_submit.grid_forget()
 
-            self.increment_field.delete(0, 'end')
+            self.number_field.delete(0, 'end')
 
             self.dedication_mode_file = "Dedication Record.txt"
             with open("Dedication Record.txt", 'r+') as file:
@@ -128,14 +128,14 @@ class DedicationTracker(tk.Frame):
                 self.date_update(right_now)
 
         self.dedication_mode_toggle_button.config(
-            text="Switch to increment mode", command=self.initialize_increment_mode)
+            text="Switch to number mode", command=self.initialize_number_mode)
 
         self.all_categories = self.all_categories_time
         self.set_up_categories(initial=True)
         self.set_internal_time()
-        self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))  # Visually sets timer
+        self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))  # Visually sets timer
 
-        self.timer_increment_label.grid(row=0, column=3, columnspan=3)
+        self.timer_number_label.grid(row=0, column=3, columnspan=3)
         self.toggle_timer_button.grid(row=2, column=1)
 
     def set_internal_time(self):
@@ -171,35 +171,35 @@ class DedicationTracker(tk.Frame):
             for _ in range(len(self.scheduled)):
                 self.root.after_cancel(self.scheduled.pop())
             sleep(1)
-            self.timer_increment()
+            self.timer_number()
 
-    def timer_increment(self):
+    def timer_number(self):
         if not self.timer_is_on:
             return
-        self.scheduled.append(self.root.after(1000, self.timer_increment))
+        self.scheduled.append(self.root.after(1000, self.timer_number))
         self.current_category_time += timedelta(seconds=1)
-        self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+        self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
         if (right_now := str(date.today())) != self.current_date:
             self.date_update(right_now)
 
     def date_update(self, right_now: str):
         timer = self.timer_is_on
-        if increment := (self.dedication_mode_file == "Dedication#Record.txt"):
+        if number := (self.dedication_mode_file == "Dedication#Record.txt"):
             self.save_records()
         else:  # Time mode
             self.stop_timer()
         self.current_date_label.config(text=right_now)
         self.current_date = right_now
-        if self.save_records(increment=increment, new_day=True):  # Start entry for next day
+        if self.save_records(number=number, new_day=True):  # Start entry for next day
             self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
-            self.increment = 0
+            self.number = 0
             if self.dedication_mode_file == "Dedication Record.txt":
-                self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+                self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
             self.set_up_categories(initial=True)
         if self.dedication_mode_file == "Dedication Record.txt" and timer:
             self.start_timer()
 
-    def initialize_increment_mode(self, initial=False):
+    def initialize_number_mode(self, initial=False):
         if not initial:
             self.timer_is_on = False
             self.save_records()
@@ -212,47 +212,47 @@ class DedicationTracker(tk.Frame):
             if (right_now := str(date.today())) != self.current_date:
                 self.date_update(right_now)
 
-        self.all_categories = self.all_categories_increment
+        self.all_categories = self.all_categories_number
         self.set_up_categories(initial=True)
         self.dedication_mode_toggle_button.config(text="Switch to time mode", command=self.initialize_time_mode)
 
-        self.timer_increment_label.grid()
-        self.timer_increment_label.config(text="0", wraplength=500)
-        self.increment_field.grid(row=2, column=1, pady=(0, 50))
-        self.increment_submit.grid(row=2, column=1, pady=(35, 0))
+        self.timer_number_label.grid()
+        self.timer_number_label.config(text="0", wraplength=500)
+        self.number_field.grid(row=2, column=1, pady=(0, 50))
+        self.number_submit.grid(row=2, column=1, pady=(35, 0))
 
-    def update_increment(self, increment: str):
+    def update_number(self, number: str):
         if (right_now := str(date.today())) != self.current_date:
             self.date_update(right_now)
         if self.current_category.get().strip() == '':
             tk.messagebox.showwarning('No category selected',
                                       'Please select a category from the drop-down menu to add a value to.')
             return
-        if ' ' in increment:
+        if ' ' in number:
             tk.messagebox.showwarning('Invalid entry', 'Values cannot contain empty spaces.')
             return
         try:
-            _ = float(increment)
+            _ = float(number)
         except ValueError:
             tk.messagebox.showwarning('Invalid entry', 'Values can only be integers or decimals.')
             return
-        self.increment = increment
-        self.save_records(increment=True)
+        self.number = number
+        self.save_records(number=True)
         self.text_resize()
-        self.increment_field.delete(0, 'end')
+        self.number_field.delete(0, 'end')
 
     def text_resize(self):
-        if len(str(self.increment)) < 10:
+        if len(str(self.number)) < 10:
             size = 70
         else:
-            size = 70 - log((len(str(self.increment)) - 8) ** 15)
+            size = 70 - log((len(str(self.number)) - 8) ** 15)
         if size < 9:
             size = 9
-        self.timer_increment_label.config(font=('arial', round(size)), text=self.increment)
+        self.timer_number_label.config(font=('arial', round(size)), text=self.number)
 
     def set_up_categories(self, initial: bool, named_category='', category_num=0):
         """Prepares a list of all categories accessed in the OptionMenu, and sets the OptionMenu options to it. This
-        occurs whenever changing modes (time/increment), and when a category is added or deleted. Sets category back to
+        occurs whenever changing modes (Time/Number), and when a category is added or deleted. Sets category back to
         whatever it was before after resetting the OptionMenu, unless the currently active category was deleted."""
         if named_category == self.current_category.get() and category_num != 0:
             initial = 'Remove current category'
@@ -260,13 +260,13 @@ class DedicationTracker(tk.Frame):
             self.current_category.set('')
             self.incoming_category.set('')
             if initial == 'Remove current category':
-                self.increment = 0
+                self.number = 0
                 self.current_category_time = timedelta(seconds=0)
                 if self.dedication_mode_file == "Dedication Record.txt":
                     self.stop_timer()
-                    self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+                    self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
                 else:
-                    self.timer_increment_label.config(text="0")
+                    self.timer_number_label.config(text="0")
         if category_num != 0:
             del self.all_categories[category_num]
         self.category_toggle_button.destroy()
@@ -280,7 +280,7 @@ class DedicationTracker(tk.Frame):
     @staticmethod
     def get_category_index(category_list: list, current_category: str) -> int | None:
         """Returns the last (and only, in the case of names without spaces) index of the category name from a list
-        made from splitting the file line at spaces. This index +2 is used in various places to get the time/increment
+        made from splitting the file line at spaces. This index +2 is used in various places to get the time/number
         data for the given category."""
         if ' ' in current_category:
             return util.verify_spaced_name(category_list=category_list, category=current_category)
@@ -296,13 +296,13 @@ class DedicationTracker(tk.Frame):
             self.current_category.set(self.incoming_category.get())
             if self.dedication_mode_file == "Dedication Record.txt":
                 self.set_internal_time()
-                self.timer_increment_label.config(text=str(self.current_category_time).rjust(8, '0'))
+                self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
             else:
                 _, today_categories = self.get_current_category_data()
                 if category_index := self.get_category_index(category_list=today_categories, current_category=self.current_category.get()):
-                    self.increment = today_categories[category_index + 2]
+                    self.number = today_categories[category_index + 2]
                 else:
-                    self.increment = 0
+                    self.number = 0
                 self.text_resize()
 
     def add_today_category(self, current_category: str):
@@ -335,9 +335,9 @@ class DedicationTracker(tk.Frame):
         self.category_entry.delete(0, 'end')
         self.set_up_categories(initial=False)
 
-    def save_records(self, increment=False, new_day=False):
+    def save_records(self, number=False, new_day=False):
         if (self.dedication_mode_file == "Dedication Record.txt" and str(self.current_category_time) == '0:00:00') or \
-                self.current_category.get() == '' or (self.dedication_mode_file == "Dedication#Record.txt" and not increment):
+                self.current_category.get() == '' or (self.dedication_mode_file == "Dedication#Record.txt" and not number):
             return
         if new_day:
             with open(self.dedication_mode_file, "r+b") as file:
@@ -355,8 +355,8 @@ class DedicationTracker(tk.Frame):
         category_index = self.get_category_index(category_list=saved_line, current_category=self.current_category.get())
         if self.dedication_mode_file == "Dedication Record.txt":
             saved_line[category_index + 2] = str(self.current_category_time).rjust(8, '0')
-        else:  # Increment mode
-            saved_line[category_index + 2] = str(self.increment)
+        else:  # Number mode
+            saved_line[category_index + 2] = str(self.number)
         saved_line = ' '.join(saved_line)
         with open(self.dedication_mode_file, "r+b") as file:
             file.seek(-2, 2)

@@ -215,8 +215,12 @@ class GraphCreator(tk.Frame):
         self.graph_format_button.config(width=4)
         self.line_dot_text = tk.Label(self.graph_creator, text='Line dot style')
         self.line_dot_text.grid(row=6, column=4, pady=(0, 50))
-        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.', '●',
-                                                    '◼', '▲', '*', '+', 'x', 'X', '|', '_')
+        self.line_dot_style_options = tk.OptionMenu(self.graph_creator, self.line_dot_style, 'Flat', '.', '●', '◼', '◆',
+                                                    '♦', '⬟', '⬢', '⬣', '⯃', '▲', '▼', '◀', '▶', '*', '+', '✚', 'x', 'X', '|', '_')
+        self.style_dict = {'Flat': 'None', '●': 'o', '◼': 's', '◆': 'D', '♦': 'd', '⬟': 'p', '⬢': 'h', '⬣': 'H',
+                           '⯃': '8', '▲': '^', '▼': 'v', '◀': '<', '▶': '>', '✚': 'P'}
+        self.style_dict_back = {'None': 'Flat', 'o': '●', 's': '◼', 'D': '◆', 'd': '♦', '^': '▲', 'p': '⬟', 'h': '⬢',
+                                'H': '⬣', '8': '⯃', 'v': '▼', '<': '◀', '>': '▶', 'P': '✚'}
         self.line_dot_style_options.grid(row=6, column=4)
         self.line_dash_text = tk.Label(self.graph_creator, text='Line style')
         self.line_dash_text.grid(row=6, column=4, pady=(60, 0))
@@ -399,18 +403,14 @@ class GraphCreator(tk.Frame):
             else:
                 self.chosen_colors.insert('end', self.chosen_color)
             self.chosen_line_styles.insert(
-                'end', f"{self.translate_style_name(self.line_dot_style.get())} {self.line_style.get()}")
+                'end', f"{self.line_dot_style.get()} {self.line_style.get()}")
 
     @staticmethod
-    def translate_style_name(dot: str) -> str:
-        if dot == 'Flat':
-            return 'None'
-        if dot == '●':
-            return 'o'
-        if dot == '◼':
-            return 's'
-        if dot == '▲':
-            return '^'
+    def translate_style_name(dot: str, style_dict: dict) -> str:
+        try:
+            return style_dict[dot]
+        except KeyError:
+            pass
         return dot
 
     def remove_category(self, color=False):
@@ -449,8 +449,8 @@ class GraphCreator(tk.Frame):
             else:
                 self.chosen_colors.insert(target_num, self.chosen_color)
         else:
-            self.chosen_line_styles.insert(target_num,
-                                           f"{self.translate_style_name(self.line_dot_style.get())} {self.line_style.get()}")
+            self.chosen_line_styles.insert(
+                target_num, f"{self.line_dot_style.get()} {self.line_style.get()}")
 
     def graph_type_switch(self, incoming_graph_type: str, skip_message=False):
         if incoming_graph_type == self.graph_type.get():
@@ -491,6 +491,8 @@ class GraphCreator(tk.Frame):
             self.nil_swap('Zero')
 
     def graph_prep(self, mode: str):
+        """Prepares the configuration dictionary from all selected options for use in graph creation, or to save the
+        configuration to a file. First performs error-checking."""
         if (overwrite_line := self.graph_error_check(mode, self.graph_name_entry.get().strip())) is True:
             overwrite_line = False
         elif not overwrite_line:
@@ -500,7 +502,9 @@ class GraphCreator(tk.Frame):
                 self.duration_mode.get(), self.graph_type.get(), self.min_value_mode.get(), self.min_value_hours.get(),
                 self.min_value_minutes.get(), self.min_value_seconds.get(), self.max_value_mode.get(),
                 self.max_value_hours.get(), self.max_value_minutes.get(), self.max_value_seconds.get(),
-                self.chosen_line_styles.get(0, 'end'), self.graph_format.get(), self.chosen_categories.get(0, 'end'),
+                [f"{self.translate_style_name(dot=line_style.split()[0], style_dict=self.style_dict)} {line_style.split()[1]}"
+                    for line_style in self.chosen_line_styles.get(0, 'end')],  # Chosen line styles, dots translated
+                self.graph_format.get(), self.chosen_categories.get(0, 'end'),
                 self.chosen_colors.get(0, 'end'), self.target_value_box.get(), self.target_value_box_two.get(),
                 self.zero_type.get(), self.nil_type.get(), self.exclude_today.get(), self.rolling_average_on.get(),
                 self.rolling_average_interval.get())))
@@ -529,8 +533,12 @@ class GraphCreator(tk.Frame):
         tk.messagebox.showinfo('Configuration saved', 'Graph settings saved successfully.',
                                parent=self.graph_creator)
 
-    def graph_error_check(self, mode: str, graph_name: str):
-        if mode == 'save':
+    def graph_error_check(self, mode: str, graph_name: str) -> bool | int:
+        """Checks for potential errors or issues with selected graph options. Returns False if there is an error, or the
+        user declined to continue after an issue. Returns True if there are no issues and a configuration in the file
+        is not being overwritten. Returns an integer if there are no issues, and a line in the file corresponding to the
+        integer is being overwritten."""
+        if mode == 'save':  # Saving config to file
             if len(graph_name) > 40:
                 if not tk.messagebox.askyesno('Excessive name length', 'Long config names may result in display issues.'
                                               ' Are you sure you wish to proceed?', icon='warning', parent=self.graph_creator):
@@ -560,14 +568,13 @@ class GraphCreator(tk.Frame):
                     for line_num, line in enumerate(csv.DictReader(csvfile)):
                         if line['Title'] == graph_name:
                             if not tk.messagebox.askyesno(
-                                    'Overwrite configuration', 'A saved configuration with the same name already'
-                                    'exists. Would you like to overwrite it?', icon='warning', parent=self.graph_creator):
+                                   'Overwrite configuration', 'A saved configuration with the same name already exists.'
+                                   ' Would you like to overwrite it?', icon='warning', parent=self.graph_creator):
                                 return False
                             return int(line_num+1)
             except (KeyError, FileNotFoundError):
                 self.backup_prompt()
                 return False
-
         return True
 
     def minmax_error_check(self):
@@ -579,7 +586,7 @@ class GraphCreator(tk.Frame):
         if minimum >= maximum:
             return True
 
-    def backup_prompt(self):
+    def backup_prompt(self) -> bool | None:
         if exists("Graph Config.csv.bak") and tk.messagebox.askyesno(
                 'Saved settings not found', 'No saved settings could be found. It is possible that they are either '
                                             'missing or corrupted. Would you like to restore from a backup?',
@@ -592,8 +599,8 @@ class GraphCreator(tk.Frame):
             with open(r"Graph Config.csv", 'r') as csvfile:
                 saved_settings = [config['Title'] for config in csv.DictReader(csvfile)]
         except (KeyError, FileNotFoundError):
-            saved_settings = ''
-        if len(saved_settings) == 0:
+            saved_settings = False
+        if not saved_settings:
             if not self.backup_prompt():
                 tk.messagebox.showwarning('No saved settings', 'No settings to load', parent=self.graph_creator)
         else:
@@ -667,9 +674,11 @@ class GraphCreator(tk.Frame):
 
         self.chosen_line_styles.delete(0, 'end')
         for mode in settings['Line Styles'].split('|'):
-            self.chosen_line_styles.insert('end', mode)
+            self.chosen_line_styles.insert(
+                'end', f"{self.translate_style_name(dot=mode.split()[0], style_dict=self.style_dict_back)} "
+                       f"{mode.split()[1]}")  # Translates style dots back (special characters fail to save in file)
         self.graph_format.set(settings['Graph Format'])
-        self.graph_format_toggle(settings['Categories'])
+        self.graph_format_toggle(settings['Graph Format'])
 
         self.chosen_categories.delete(0, 'end')
         for mode in settings['Categories'].split('|'):
@@ -698,7 +707,6 @@ class GraphCreator(tk.Frame):
                 settings['Rolling Average Interval'] = 'All'
             self.spin_entry_insert(self.rolling_average_interval, settings['Rolling Average Interval'])
         else:
-            self.rolling_average_on.set(False)
             self.spin_entry_insert(self.rolling_average_interval, entry='All', state='disabled')
         tk.messagebox.showinfo('Load complete', f"{target} settings loaded successfully.")
         self._config_load_close(window)

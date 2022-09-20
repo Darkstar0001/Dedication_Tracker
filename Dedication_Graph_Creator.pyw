@@ -18,13 +18,13 @@ class GraphCreator(tk.Frame):
                  'chosen_line_styles', 'target_value_box_two', 'all_categories', 'colon_3', 'color_overwrite',
                  'first_time_date', 'save_options', 'line_dot_style', 'days_ago_field', 'chosen_color',
                  'saved_categories', 'colon_2', 'add_category_button', 'load_options', 'dedication_mode_file',
-                 'chosen_color_options', 'graph_type_options', 'colon_4', 'line_dash_options',
+                 'chosen_color_options', 'graph_type_options', 'colon_4', 'line_dash_options', 'style_dict_back',
                  'days_ago_mode', 'line_dot_style_options', 'colon_1', 'target_value_header', 'dedication_mode',
                  'incoming_graph_type', 'start_date_button', 'chosen_colors', 'graph_format_button', 'line_dot_text',
                  'max_value_minutes', 'zero_type_header', 'end_date_button', 'nil_type_header', 'duration_mode',
                  'min_value_minutes', 'selected_option', 'max_value_options', 'graph_creator', 'min_value_seconds',
                  'min_value_options', 'first_increment_date', 'graph_format', 'days_ago_text', 'start_date',
-                 'widgetName', 'master', 'tk', '_w', '_name', 'children', 'all_categories_time',
+                 'widgetName', 'master', 'tk', '_w', '_name', 'children', 'all_categories_time', 'style_dict',
                  'all_categories_increment', 'rolling_average_on', 'interval_label', 'rolling_average_interval')
 
     def __init__(self, all_categories_time: list, all_categories_increment: list, dedication_mode_file: str):
@@ -811,8 +811,9 @@ class GraphCreator(tk.Frame):
         plot_points = []
         bar_max = []
         for index, category in enumerate(config['Categories']):
-            plot_points.append(self.get_data_points(category, plot_dates, config['Graph Type'],
-                                                    config['Empty Value Placeholder'], config['Graph Format']))
+            plot_points.append(self.get_data_points(
+                category=category, dataset=plot_dates, graph_type=config['Graph Type'],
+                zero_type=config['Empty Value Placeholder'], graph_format=config['Graph Format']))
             if config['Graph Format'] == 'Line':
                 if config['Category Colors'][index] == 'Auto':
                     plt.plot(short_dates, plot_points[index], marker=dots[index],
@@ -901,34 +902,32 @@ class GraphCreator(tk.Frame):
         """Takes category, dataset (plot_dates (lines from file containing dates to be plotted)),
         graph_type (Time or Increment), zero_type (Zero or Nil) and graph_format (Line or Bar) and processes the
         dataset to return the time/increment values for each date in a list that can be used by pyplot"""
-        mode_plot_points = []
+        category_plot_points = []
         for data_set in dataset:
-            for num, data_point in enumerate(data_set.split(' ')):
+            for num, data_point in enumerate(data_set.split()):
                 if ' ' in category:  # Check if spaced name
-                    if data_point == category.split(' ')[0]:
-                        index = util.verify_spaced_name(category_list=data_set.split(' ')[:], category=category)
-                        if index:
-                            if graph_type == 'Time':
-                                hours = data_set.split(' ')[index + 2]
-                                mode_plot_points.append(hours)
-                            else:
-                                mode_plot_points.append(float(data_set.split(' ')[index + 2]))
-                            break
+                    if index := util.verify_spaced_name(category_list=data_set.split(), category=category):
+                        if graph_type == 'Time':
+                            category_plot_points.append(get_time_from_data(data_set.split()[index+2]))
+                        else:
+                            category_plot_points.append(float(data_set.split(' ')[index + 2]))
+                        break
                 elif data_point == category:
                     if graph_type == 'Time':
-                        hours = data_set.split(' ')[num + 2]
-                        hours = int(hours.split(':')[0]) + (int(hours.split(':')[1]) / 60) + (
-                                int(hours.split(':')[2]) / 3600)
-                        mode_plot_points.append(hours)
+                        category_plot_points.append(get_time_from_data(data=data_set.split()[num + 2]))
                     else:
-                        mode_plot_points.append(float(data_set.split(' ')[num + 2]))
+                        category_plot_points.append(float(data_set.split()[num + 2]))
                     break
             else:
                 if zero_type == 'Zero' or graph_format == 'Bar':
-                    mode_plot_points.append(0)
+                    category_plot_points.append(0)
                 else:
-                    mode_plot_points.append(None)
-        return mode_plot_points
+                    category_plot_points.append(None)
+        return category_plot_points
+
+
+def get_time_from_data(data: str) -> float:
+    return float(int(data.split(':')[0]) + (int(data.split(':')[1]) / 60) + (int(data.split(':')[2]) / 3600))
 
 
 def get_dedication_mode_file() -> str:

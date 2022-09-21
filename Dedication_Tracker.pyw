@@ -7,6 +7,7 @@ try:
     from time import sleep
     from _thread import start_new_thread
     from threading import Event
+    from math import log
 except ImportError as e:
     util.import_error_message(error=e)
 
@@ -14,8 +15,8 @@ except ImportError as e:
 class DedicationTracker(tk.Frame):
     __slots__ = ("all_categories", "timer_is_on", "incoming_category",  "_name", "current_category_time",
                  "current_category", "current_date", "dedication_mode", "widgetName", "master", "tk",
-                 "current_date_label", 'dedication_mode_file', "all_categories_number", "root",
-                 "counter_frame", "category_entry", "all_categories_time", "dedication_mode_toggle_button",
+                 "current_date_label", 'dedication_mode_file', "all_categories_number", "root", "timer",
+                 "scheduled", "category_entry", "all_categories_time", "dedication_mode_toggle_button",
                  "div1", "div2", "toggle_timer_button", "number_label", "number", "timer_number_label",
                  "number_field", "number_submit", "category_toggle_button", "children", "_w")
 
@@ -26,8 +27,7 @@ class DedicationTracker(tk.Frame):
         self.master.geometry("500x270")
         self.master.resizable(False, False)
         self.place(relx=0.5, relwidth=1, anchor='n')
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(3, weight=1)
+
         self.current_date = str(date.today())
         self.incoming_category = tk.StringVar()
         self.current_category = tk.StringVar()
@@ -41,14 +41,14 @@ class DedicationTracker(tk.Frame):
 
         self.current_date_label = tk.Label(self, text=self.current_date, font='arial 40')
         self.current_date_label.grid(column=1)
-        tk.Button(self, text="Create Graph", font='arial 10', takefocus=False,
-                  command=self.open_graph_creator).grid(row=0, column=1, padx=(380, 0), ipady=5)
+        tk.Button(self, text="Create Graph", font='arial 10', takefocus=False, command=self.open_graph_creator).grid(
+            row=0, column=1, padx=(380, 0), ipady=5)
         tk.Button(self, text="Basic View", font='arial 10', command=self.basic_view, takefocus=False).grid(
             row=0, column=1, padx=(0, 380), ipady=5)
-        self.counter_frame = tk.Frame(self)
-        self.counter_frame.grid(row=1, column=1)
+
         tk.Button(self, text='Delete category', takefocus=False, command=lambda: self.load_saved_categories(
-            self.dedication_mode_file, self.all_categories)).grid(row=2, column=1, padx=(0, 300), pady=(0, 50))
+            self.dedication_mode_file, self.all_categories)).grid(
+            row=2, column=1, padx=(0, 300), pady=(0, 50))
         self.category_entry = tk.Entry(self, width=24)
         self.category_entry.grid(row=2, column=1, padx=(0, 300))
         tk.Button(self, text="Add new category", font='arial 10', command=lambda: self.create_category(
@@ -56,10 +56,9 @@ class DedicationTracker(tk.Frame):
         self.dedication_mode_toggle_button = tk.Button(self, font='arial 10')
         self.dedication_mode_toggle_button.grid(row=2, column=1, padx=(310, 0), pady=(0, 50))
 
-        self.timer_number_label = tk.Label(self.counter_frame, text='0', font='arial 70')
+        self.timer_number_label = tk.Label(self, font='arial 70', wraplength=500)
+        self.timer_number_label.grid(row=1, column=1)
         self.toggle_timer_button = tk.Button(self, text="Start", command=self.start_timer, font='arial 30')
-
-        self.timer_number_label = tk.Label(self.counter_frame, text=self.number, font='arial 70')
         self.number_field = tk.Entry(self)
         self.number_submit = tk.Button(self, text='Update', font='arial 20',
                                        command=lambda: self.update_number(self.number_field.get().strip()))
@@ -76,10 +75,11 @@ class DedicationTracker(tk.Frame):
             self.initialize_time_mode(initial=True)
         else:
             self.initialize_number_mode(initial=True)
-        _, today_categories = self.get_current_category_data()
+        today_categories = self.get_current_category_data()[1]
         if today_categories[2]:
             #  Sets category to the words in between the first and second blank spaces in today_categories
-            self.incoming_category.set(' '.join(today_categories[2:today_categories[today_categories.index('') + 1:].index('') + 2]))
+            self.incoming_category.set(
+                ' '.join(today_categories[2:today_categories[today_categories.index('') + 1:].index('') + 2]))
             self.category_toggle()
         self.root.protocol('WM_DELETE_WINDOW', self.shutdown)  # Enable auto-save on exit
 
@@ -87,6 +87,8 @@ class DedicationTracker(tk.Frame):
         start_new_thread(self.run_autosaver, ())
 
     def prepare_file(self, filename: str):
+        """Fills in dates since last access with blank entries,
+        including the current day, if no entry for the current day exists."""
         try:
             with open(filename, 'r+b') as file:
                 file.seek(-2, 2)
@@ -104,9 +106,10 @@ class DedicationTracker(tk.Frame):
                             f"Is there another file titled {self.dedication_mode_file} in the directory?")
 
     def get_current_category_data(self) -> tuple:
-        """Reads the last line from the file to see if any categories already have progress for the current date.
-        Returns category_index (index in today_categories of first progressed category) and today_categories
-        (list of items on last line of file). Time/Number data is two indices after its category name."""
+        """Reads the last line from the file to see if any categories already have data for the current date.
+        Returns category_index (index in today_categories of first active category) and today_categories
+        (list of items on last line of file). Time/Number data is two indices after its category name.
+        e.g. [date, 'divider', category name, 'divider', time/number data]"""
         with open(self.dedication_mode_file, 'rb') as file:
             file.seek(-2, 2)
             while file.read(1) != b'\n':
@@ -134,21 +137,23 @@ class DedicationTracker(tk.Frame):
         self.all_categories = self.all_categories_time
         self.set_up_categories(initial=True)
         self.set_internal_time()
-        self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))  # Visually sets timer
+        self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'), font='arial 70')
 
-        self.timer_number_label.grid(row=0, column=3, columnspan=3)
         self.toggle_timer_button.grid(row=2, column=1)
 
     def set_internal_time(self):
+        """Sets self.current_category_time to the time recorded for the current category for the current day in the
+        file. If no category is active, or the current category does not have an entry for the current day, sets
+        time to 0 hours, 0 minutes, 0 seconds."""
         if self.current_category.get() == '':
-            self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
+            self.current_category_time = timedelta(hours=0, minutes=0, seconds=0)
             return
         category_index, start_time = self.get_current_category_data()
         try:
             hours, minutes, seconds = start_time[category_index + 2].split(':')
             self.current_category_time = timedelta(hours=int(hours), minutes=int(minutes), seconds=int(seconds))
         except (IndexError, TypeError):
-            self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
+            self.current_category_time = timedelta(hours=0, minutes=0, seconds=0)
 
     def start_timer(self):
         if self.current_category.get().strip() == '':
@@ -172,12 +177,12 @@ class DedicationTracker(tk.Frame):
             for _ in range(len(self.scheduled)):
                 self.root.after_cancel(self.scheduled.pop())
             sleep(1)
-            self.timer_number()
+            self.increment_timer()
 
-    def timer_number(self):
+    def increment_timer(self):
         if not self.timer_is_on:
             return
-        self.scheduled.append(self.root.after(1000, self.timer_number))
+        self.scheduled.append(self.root.after(1000, self.increment_timer))
         self.current_category_time += timedelta(seconds=1)
         self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
         if (right_now := str(date.today())) != self.current_date:
@@ -217,8 +222,7 @@ class DedicationTracker(tk.Frame):
         self.set_up_categories(initial=True)
         self.dedication_mode_toggle_button.config(text="Switch to time mode", command=self.initialize_time_mode)
 
-        self.timer_number_label.grid()
-        self.timer_number_label.config(text="0", wraplength=500)
+        self.timer_number_label.config(text="0")
         self.number_field.grid(row=2, column=1, pady=(0, 50))
         self.number_submit.grid(row=2, column=1, pady=(35, 0))
 
@@ -239,17 +243,24 @@ class DedicationTracker(tk.Frame):
             return
         self.number = number
         self.save_records(number=True)
-        self.text_resize()
+        self.timer_number_label.config(font=('arial', self.text_resize(number)), text=self.number_safeguard(number))
         self.number_field.delete(0, 'end')
 
-    def text_resize(self):
-        if len(str(self.number)) < 10:
-            size = 70
-        else:
-            size = 70 - log((len(str(self.number)) - 8) ** 15)
-        if size < 9:
-            size = 9
-        self.timer_number_label.config(font=('arial', round(size)), text=self.number)
+    @staticmethod
+    def text_resize(number: int, ) -> int:
+        """Automatically resizes the text displaying large numbers in number mode."""
+        if len(str(number)) < 10:
+            return 70
+        elif (size := 70 - log((len(str(number)) - 8) ** 15)) < 12:
+            return 12
+        return round(size)
+
+    @staticmethod
+    def number_safeguard(number: str) -> str:
+        """Prevents excessively large values in number mode from pushing buttons off the screen."""
+        if len(number) > 328:
+            return number[:329] + '...'
+        return number
 
     def set_up_categories(self, initial: bool, named_category='', category_num=0):
         """Prepares a list of all categories accessed in the OptionMenu, and sets the OptionMenu options to it. This
@@ -299,14 +310,17 @@ class DedicationTracker(tk.Frame):
                 self.set_internal_time()
                 self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
             else:
-                _, today_categories = self.get_current_category_data()
-                if category_index := self.get_category_index(category_list=today_categories, current_category=self.current_category.get()):
+                today_categories = self.get_current_category_data()[1]
+                if category_index := self.get_category_index(category_list=today_categories,
+                                                             current_category=self.current_category.get()):
                     self.number = today_categories[category_index + 2]
                 else:
                     self.number = 0
-                self.text_resize()
+                self.timer_number_label.config(font=('arial', self.text_resize(self.number)),
+                                               text=self.number_safeguard(str(self.number)))
 
     def add_today_category(self, current_category: str):
+        """Adds data for a category to the file when that category first saves data for the current date."""
         category_index, today_categories = self.get_current_category_data()
         if current_category not in today_categories[2:-1:4] and current_category != '' and category_index is None:
             with open(self.dedication_mode_file, "r+b") as file:
@@ -420,9 +434,9 @@ class DedicationTracker(tk.Frame):
     def shutdown(self):
         try:
             self.save_records()
-        except Exception as e:
+        except Exception as err:
             if not tk.messagebox.askyesno(
-                    'Autosave failed', f'An error occurred when attempting to save your work on exit.\n"{e}"\nIt is '
+                    'Autosave failed', f'An error occurred when attempting to save your work on exit.\n"{err}"\nIt is '
                                        'possible that your work was not recorded properly during this session, so you '
                                        'may wish to record it manually. \nDo you want to quit anyway?', icon='warning'):
                 return
@@ -430,5 +444,4 @@ class DedicationTracker(tk.Frame):
 
 
 if __name__ == "__main__":
-    dedication_tracker = DedicationTracker()
-    dedication_tracker.tk.mainloop()
+    DedicationTracker().tk.mainloop()

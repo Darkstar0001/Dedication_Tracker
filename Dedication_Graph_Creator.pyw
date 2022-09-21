@@ -1,11 +1,15 @@
-import tkinter as tk
-from tkinter import messagebox, colorchooser
-from datetime import date
-from tkcalendar import Calendar
-from os.path import exists, getsize
-from math import log
-import csv
 import dedicationsharedfunctions as util
+try:
+    import tkinter as tk
+    from tkinter import messagebox, colorchooser
+    from datetime import date
+    from tkcalendar import Calendar
+    from os.path import exists, getsize
+    from math import log
+    import csv
+except ImportError as e:
+    util.import_error_message(error=e)
+
 # matplotlib is imported within GraphCreator.graph_create(), to improve program startup speed
 
 
@@ -82,10 +86,10 @@ class GraphCreator(tk.Frame):
         self.end_date = tk.Entry(self.graph_creator, state='disabled', justify='center', width=10, font='arial 12')
         self.end_date.grid(row=1, column=2, padx=(0, 50))
         self.days_ago_text = tk.Label(self.graph_creator, text="Start how many days ago")
-        self.days_ago_text.grid(row=0, column=3, pady=(10, 0), padx=(0, 130))
+        self.days_ago_text.grid(row=0, column=3, pady=(7, 0), padx=(0, 130))
         self.days_ago_field = tk.Spinbox(self.graph_creator, from_=1, to=9999, width=4,
                                          font='arial 12', repeatinterval=2)
-        self.days_ago_field.grid(row=1, column=3, padx=(0, 130), pady=(0, 10))
+        self.days_ago_field.grid(row=1, column=3, padx=(0, 130), pady=(0, 25))
         self.days_ago_field.delete(0)
         self.days_ago_field.insert(0, 7)
         self.days_ago_field.config(state='readonly')
@@ -528,7 +532,7 @@ class GraphCreator(tk.Frame):
                 with open(r"Graph Config.csv", 'a', newline='') as csvfile:
                     csv.DictWriter(csvfile, fieldnames=self.graph_config_categories).writerow(configuration)
         except PermissionError:
-            tl.messagebox.showerror('Access denied', 'The destination file could not be accessed. Make sure that '
+            tk.messagebox.showerror('Access denied', 'The destination file could not be accessed. Make sure that '
                                                      'it is not open in another program.')
         tk.messagebox.showinfo('Configuration saved', 'Graph settings saved successfully.',
                                parent=self.graph_creator)
@@ -741,7 +745,11 @@ class GraphCreator(tk.Frame):
          'Exclude today': self.exclude_today.get(),
          'Plot rolling average': self.rolling_average_on.get(),
          'Rolling average interval': self.rolling_average_interval.get()}"""
-        import matplotlib.pyplot as plt
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError as error:
+            util.import_error_message(error=error, Fatal=False)
+            return
         plt.title(config['Title'])
         miny = 0
         maxy = None

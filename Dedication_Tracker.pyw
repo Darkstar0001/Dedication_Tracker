@@ -1,12 +1,14 @@
-import tkinter as tk
-from tkinter import messagebox
-from sys import exit
-from datetime import date, timedelta
-from time import sleep
-from _thread import start_new_thread
-from threading import Event
-import Dedication_Graph_Creator as dgc
 import dedicationsharedfunctions as util
+try:
+    import tkinter as tk
+    from tkinter import messagebox
+    from sys import exit
+    from datetime import date, timedelta
+    from time import sleep
+    from _thread import start_new_thread
+    from threading import Event
+except ImportError as e:
+    util.import_error_message(error=e)
 
 
 class DedicationTracker(tk.Frame):
@@ -39,9 +41,8 @@ class DedicationTracker(tk.Frame):
 
         self.current_date_label = tk.Label(self, text=self.current_date, font='arial 40')
         self.current_date_label.grid(column=1)
-        tk.Button(self, text="Create Graph", font='arial 10', takefocus=False, command=lambda: dgc.GraphCreator(
-            all_categories_time=self.all_categories_time, all_categories_number=self.all_categories_number,
-            dedication_mode_file=self.dedication_mode_file).tk.mainloop()).grid(row=0, column=1, padx=(380, 0), ipady=5)
+        tk.Button(self, text="Create Graph", font='arial 10', takefocus=False,
+                  command=self.open_graph_creator).grid(row=0, column=1, padx=(380, 0), ipady=5)
         tk.Button(self, text="Basic View", font='arial 10', command=self.basic_view, takefocus=False).grid(
             row=0, column=1, padx=(0, 380), ipady=5)
         self.counter_frame = tk.Frame(self)
@@ -410,6 +411,11 @@ class DedicationTracker(tk.Frame):
         scroll.config(command=main_category_listbox.yview)
         for category in all_categories:
             main_category_listbox.insert('end', category)
+
+    def open_graph_creator(self):
+        import Dedication_Graph_Creator as dgc
+        dgc.GraphCreator(all_categories_time=self.all_categories_time, all_categories_number=self.all_categories_number,
+                         dedication_mode_file=self.dedication_mode_file).tk.mainloop()
 
     def shutdown(self):
         try:

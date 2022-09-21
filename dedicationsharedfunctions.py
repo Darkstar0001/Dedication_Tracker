@@ -3,7 +3,7 @@ from tkinter import messagebox
 from os.path import exists, getsize
 
 
-def verify_spaced_name(category_list: list, category: str):
+def verify_spaced_name(category_list: list, category: str) -> int | None:
     """Splits a given string containing spaces (generally a line from a file), and compares it piecewise against a list
     of known category names. If a match is found, returns the index of the split list corresponding to the end of the
     spaced category name."""
@@ -91,3 +91,15 @@ def restore_from_backup(filename: str):
         backup = file.readlines()
     with open(filename, 'w+') as file:
         file.writelines(backup)
+
+
+def import_error_message(error: str, fatal=True):
+    try:
+        instructions = "pip install " + ''.join(str(error).split()[-1]).split("'")[1]
+    except IndexError:
+        instructions = 'the command designated on their online documentation page.'
+    tk.messagebox.showerror('Module not found', f"A required module was not found on your system.\nError: {error}"
+                                                f'\n\nPlease install the required module via the command line with:\n'
+                                                f'{instructions}')
+    if fatal:
+        exit()

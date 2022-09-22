@@ -199,11 +199,16 @@ class DedicationTracker(tk.Frame):
         if self.save_records(number=number, new_day=True):  # Start entry for next day
             self.current_category_time = timedelta(seconds=0, minutes=0, hours=0)
             self.number = 0
+            category = self.current_category.get()
             if self.dedication_mode_file == "Dedication Record.txt":
                 self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
             self.set_up_categories(initial=True)
+            self.incoming_category.set(category)
+            self.category_toggle()
         if self.dedication_mode_file == "Dedication Record.txt" and timer:
             self.start_timer()
+        tk.messagebox.showinfo('New day notice', "Previous day's results have been saved.\n"
+                                                 "The timer and categories have been reset for the new day.")
 
     def initialize_number_mode(self, initial=False):
         if not initial:
@@ -361,8 +366,6 @@ class DedicationTracker(tk.Frame):
                     file.seek(-2, 1)
                 if file.readline().decode()[:10] != self.current_date:  # Should always proceed
                     file.write(bytes(f"\n{str(self.current_date)} | ", 'utf-8'))
-                    tk.messagebox.showinfo('New day notice', "Previous day's results have been saved.\n"
-                                           "The timer and categories have been reset for the new day.")
                     return True
             return
         self.add_today_category(self.current_category.get())

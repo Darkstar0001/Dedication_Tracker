@@ -5,7 +5,6 @@ try:
     from datetime import date
     from tkcalendar import Calendar
     from os.path import exists, getsize
-    from math import log
     import csv
 except ImportError as e:
     util.import_error_message(error=e)
@@ -746,6 +745,7 @@ class GraphCreator(tk.Frame):
          'Plot rolling average': self.rolling_average_on.get(),
          'Rolling average interval': self.rolling_average_interval.get()}"""
         try:
+            from statistics import mean
             import matplotlib.pyplot as plt
         except ImportError as error:
             util.import_error_message(error=error, Fatal=False)
@@ -879,7 +879,6 @@ class GraphCreator(tk.Frame):
             # Plot rolling average. First replaces nil values with 0, using first category to be graphed.
             if config['Plot Rolling Average'] is True and config['Rolling Average Interval'] != 1:
                 plot_points = [plot_point if plot_point is not None else 0 for plot_point in plot_points[0]]
-                from statistics import mean
                 if config['Rolling Average Interval'] in ('0', 'All'):
                     plt.plot(short_dates, [mean(plot_points[:index+1]) for index in range(len(plot_points))],
                              label=f"Rolling average ({config['Categories'][0]})", color='#444444')

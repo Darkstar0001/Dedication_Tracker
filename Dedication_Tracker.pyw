@@ -105,7 +105,7 @@ class DedicationTracker(tk.Frame):
             raise Exception("Error in reading or creating file. "
                             f"Is there another file titled {self.dedication_mode_file} in the directory?")
 
-    def get_current_category_data(self) -> tuple:
+    def get_current_category_data(self) -> tuple[int | None, list[str]]:
         """Reads the last line from the file to see if any categories already have data for the current date.
         Returns category_index (index in today_categories of first active category) and today_categories
         (list of items on last line of file). Time/Number data is two indices after its category name.
@@ -212,8 +212,7 @@ class DedicationTracker(tk.Frame):
 
     def initialize_number_mode(self, initial=False):
         if not initial:
-            self.timer_is_on = False
-            self.save_records()
+            self.stop_timer()
 
             self.toggle_timer_button.grid_forget()
 
@@ -277,12 +276,12 @@ class DedicationTracker(tk.Frame):
             self.current_category.set('')
             self.incoming_category.set('')
             if initial == 'Remove current category':
-                self.number = 0
-                self.current_category_time = timedelta(seconds=0)
                 if self.dedication_mode_file == "Dedication Record.txt":
                     self.stop_timer()
+                    self.current_category_time = timedelta(seconds=0)
                     self.timer_number_label.config(text=str(self.current_category_time).rjust(8, '0'))
                 else:
+                    self.number = 0
                     self.timer_number_label.config(text="0")
         if category_num != 0:
             del self.all_categories[category_num]
@@ -355,7 +354,7 @@ class DedicationTracker(tk.Frame):
         self.category_entry.delete(0, 'end')
         self.set_up_categories(initial=False)
 
-    def save_records(self, number=False, new_day=False):
+    def save_records(self, number=False, new_day=False) -> None | bool:
         if (self.dedication_mode_file == "Dedication Record.txt" and str(self.current_category_time) == '0:00:00') or \
                 self.current_category.get() == '' or (self.dedication_mode_file == "Dedication#Record.txt" and not number):
             return

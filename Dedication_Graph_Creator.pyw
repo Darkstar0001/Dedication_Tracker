@@ -748,7 +748,7 @@ class GraphCreator(tk.Frame):
             from statistics import mean
             import matplotlib.pyplot as plt
         except ImportError as error:
-            util.import_error_message(error=error, Fatal=False)
+            util.import_error_message(error=error, fatal=False)
             return
         plt.title(config['Title'])
         miny = 0
